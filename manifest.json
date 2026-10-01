@@ -1,0 +1,36 @@
+{
+  "name": "Familiebudget Nørgaard",
+  "short_name": "Familiebudget",
+  "description": "Familien Nørgaards økonomiportal",
+  "start_url": "dashboard.html",
+  "display": "standalone",
+  "background_color": "#f7f8fa",
+  "theme_color": "#1a9e6e",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Rejse",
+      "url": "rejse.html",
+      "description": "Rejseomkostninger"
+    },
+    {
+      "name": "Cashflow",
+      "url": "cashflow.html",
+      "description": "Dag-for-dag saldo"
+    }
+  ]
+}

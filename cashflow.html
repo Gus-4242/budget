@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a9e6e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Familiebudget">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="app-core.css?v=27">
+<script src="app-core.js?v=27" defer></script>
+<title>Familiebudget · Cashflow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+/* Kun cashflow-specifik stil. Sidebar, topbar, kort, knapper,
+   farver og mørkt tema ligger nu i app-core.css. */
+
+/* Month tabs */
+.month-tabs-wrap { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:24px; }
+.month-tab { padding:7px 16px; border-radius:20px; font-size:13px; font-weight:400; cursor:pointer; border:1px solid var(--border2); background:var(--white); color:var(--ink-2); transition:all 0.12s; }
+.month-tab:hover { background:var(--surface); }
+.month-tab.active { background:var(--green); color:#fff; border-color:var(--green); font-weight:500; }
+.month-tab.danger { border-color:var(--red); color:var(--red); }
+.month-tab.danger.active { background:var(--red); color:#fff; }
+
+/* Summary cards – .cf-card/.cf-label/.cf-value ligger i app-core.css */
+.cf-cards { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+
+/* Chart */
+.chart-wrap { height:200px; position:relative; }
+
+/* Payment timeline */
+.timeline-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+.tl-card { background:var(--white); border:1px solid var(--border); border-radius:16px; padding:20px 22px; }
+.tl-title { font-size:14px; font-weight:500; color:var(--ink); margin-bottom:4px; }
+.tl-sub { font-size:12px; color:var(--ink-3); margin-bottom:16px; }
+
+.tl-day-group { margin-bottom:14px; }
+.tl-day-label { font-size:11px; font-weight:600; color:var(--ink-3); letter-spacing:0.5px; text-transform:uppercase; padding:4px 0; border-bottom:1px solid var(--border); margin-bottom:6px; display:flex; justify-content:space-between; }
+.tl-item { display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid var(--border); }
+.tl-item:last-child { border-bottom:none; }
+.tl-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.tl-name { font-size:13px; color:var(--ink); flex:1; }
+.tl-amount { font-size:13px; font-weight:500; }
+.tl-balance { font-size:11px; color:var(--ink-3); min-width:90px; text-align:right; }
+
+/* Running balance row */
+.balance-row { display:flex; align-items:center; gap:10px; padding:5px 0 5px 18px; font-size:12px; color:var(--ink-3); border-bottom:1px dashed var(--border); }
+.balance-row.danger { color:var(--red); background:var(--red-l); border-radius:6px; padding:5px 8px; }
+.balance-row.warning { color:var(--amber); }
+
+.tl-row { position:relative; }
+.tl-row .tl-controls {
+  opacity:0; transition:opacity 0.15s;
+  display:inline-flex; align-items:center; gap:2px;
+}
+.tl-row:hover .tl-controls { opacity:1; }
+.tl-edit-day {
+  display:inline-flex; align-items:center; gap:3px;
+  font-size:10px; color:var(--blue); background:var(--blue-l);
+  border:1px solid rgba(37,99,235,0.2); border-radius:5px;
+  padding:1px 6px; cursor:pointer; margin-left:6px;
+  font-family:'DM Sans',sans-serif; transition:background 0.1s;
+  line-height:1.4;
+}
+.tl-edit-day:hover { background:#dbeafe; }
+.tl-day-input {
+  width:44px; border:1.5px solid var(--blue); border-radius:5px;
+  font-family:'DM Sans',sans-serif; font-size:11px; color:var(--ink);
+  padding:1px 5px; outline:none; background:var(--white); text-align:center;
+}
+.tl-order-btn {
+  width:16px; height:16px; border-radius:3px; border:none;
+  background:none; color:var(--ink-3); cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  transition:background 0.1s, color 0.1s; flex-shrink:0;
+  font-size:9px; padding:0;
+}
+.tl-order-btn:hover { background:var(--amber-l); color:var(--amber); }
+.paid-check {
+  width:20px; height:20px; border-radius:50%; flex-shrink:0;
+  border:1.5px solid var(--border2); background:var(--white);
+  cursor:pointer; display:inline-flex; align-items:center; justify-content:center;
+  font-size:12px; color:#fff; padding:0; transition:all .15s;
+  font-family:'DM Sans',sans-serif;
+}
+.paid-check:hover { border-color:var(--green); background:var(--green-l); }
+.paid-check.is-paid { background:var(--green); border-color:var(--green); }
+.range-btn {
+  padding:5px 12px; border-radius:16px; font-size:12px; font-weight:400;
+  cursor:pointer; border:1px solid var(--border2); background:var(--white);
+  color:var(--ink-2); transition:all 0.12s; font-family:'DM Sans',sans-serif;
+}
+.range-btn:hover { background:var(--surface); }
+.range-btn.active { background:var(--green); color:#fff; border-color:var(--green); font-weight:500; }
+
+@media (max-width:900px) { .timeline-grid { grid-template-columns:1fr; } }
+@media (max-width:768px) {
+  .hide-mobile { display:none; }
+  .cf-cards { grid-template-columns:1fr 1fr !important; }
+}
+</style>
+<!-- Bemærk: de tidligere no-cache meta-tags er fjernet.
+     De slog browserens caching fra og var en stor del af grunden til,
+     at siden var langsom på mobil. Friske data sikres nu af
+     service-workeren (network-first med tidsgrænse) i stedet. -->
+</head>
+<body>
+
+<div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar" data-active="cashflow"></aside>
+
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="hamburger" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title">Cashflow</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <span style="font-size:13px;color:var(--ink-3);" class="hide-mobile">Følg saldoen på budgetkontoen dag for dag</span>
+      <button onclick="openManualModal()" style="display:flex;align-items:center;gap:6px;background:var(--green);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(26,158,110,0.25);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Tilføj/udtræk penge
+      </button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- Month tabs -->
+    <div class="month-tabs-wrap" id="month-tabs"></div>
+
+    <!-- Summary cards -->
+    <div class="cf-cards" style="grid-template-columns:repeat(5,1fr);">
+      <div class="cf-card"><div class="cf-label">PRIMO SALDO</div><div class="cf-value info" id="cf-primo">–</div></div>
+      <div class="cf-card"><div class="cf-label">MÅNEDLIGE INDTÆGTER</div><div class="cf-value pos" id="cf-income">–</div></div>
+      <div class="cf-card"><div class="cf-label">MÅNEDLIGE UDGIFTER</div><div class="cf-value neg" id="cf-expenses">–</div></div>
+      <div class="cf-card"><div class="cf-label">ULTIMO SALDO</div><div class="cf-value" id="cf-ultimo">–</div></div>
+      <div class="cf-card" id="cf-buffer-card" style="border:1.5px solid rgba(26,158,110,0.3);transition:all 0.4s;">
+        <div class="cf-label" id="cf-buffer-label">DISPONIBEL BUFFER</div>
+        <div class="cf-value" id="cf-buffer">–</div>
+        <div style="font-size:11px;margin-top:4px;" id="cf-buffer-sub">–</div>
+      </div>
+    </div>
+
+    <!-- Balance chart med tidsslider -->
+    <div class="chart-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:12px;">
+        <div class="chart-title" style="margin:0;">Saldo på budgetkonto</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:12px;color:var(--ink-3);">Vis:</span>
+          <div style="display:flex;gap:4px;">
+            <button class="range-btn active" onclick="setRange(1)" id="btn-1m">1 mdr</button>
+            <button class="range-btn" onclick="setRange(3)" id="btn-3m">3 mdr</button>
+            <button class="range-btn" onclick="setRange(6)" id="btn-6m">6 mdr</button>
+            <button class="range-btn" onclick="setRange(12)" id="btn-12m">12 mdr</button>
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap" style="height:240px;"><canvas id="balanceChart" role="img" aria-label="Daglig saldo på budgetkonto"></canvas></div>
+      <div style="margin-top:14px;">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-3);margin-bottom:4px;">
+          <span id="slider-start-label">Jan 2026</span>
+          <span style="font-weight:500;color:var(--ink-2);">← Træk for at navigere →</span>
+          <span id="slider-end-label">Dec 2026</span>
+        </div>
+        <input type="range" id="timeline-slider" min="0" max="17" value="0"
+          style="width:100%;accent-color:var(--green);height:4px;cursor:pointer;"
+          oninput="onSlider(this.value)">
+      </div>
+    </div>
+
+    <!-- Primo saldo input - STATIC, kun én -->
+    <div style="background:var(--blue-l);border:1px solid rgba(37,99,235,0.2);border-radius:12px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      <span style="font-size:14px;color:var(--blue);font-weight:500;">Primo saldo på budgetkonto:</span>
+      <input type="number" id="primo-input" value="23653"
+        style="width:110px;border:1.5px solid rgba(37,99,235,0.4);border-radius:8px;padding:6px 10px;font-size:14px;font-family:'DM Sans',sans-serif;color:var(--ink);background:var(--white);outline:none;"
+        onchange="updatePrimo(this.value)">
+      <span style="font-size:13px;color:var(--ink-3);">kr. — beregnet fra forrige måned, ret for manuel override</span>
+      <button onclick="resetPrimo()" title="Nulstil til beregnet saldo"
+        style="font-size:11px;color:var(--ink-3);background:none;border:1px solid var(--border2);border-radius:6px;padding:3px 8px;cursor:pointer;font-family:'DM Sans',sans-serif;">
+        ↺ Nulstil
+      </button>
+    </div>
+
+    <!-- Timeline – samlet med løbende saldo -->
+    <div class="tl-card" style="margin-bottom:24px;">
+      <div class="tl-title">Betalingsplan med løbende saldo</div>
+      <div class="tl-sub">Saldo på budgetkonto efter hver enkelt postering</div>
+      <div id="payment-timeline"></div>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+/* Firebase initialiseres ét sted – se db.js.
+   Det er dér, rettelsen af den langsomme mobilforbindelse ligger. */
+import { db, requireAuth } from "./db.js?v=27";
+import { collection, getDocs, doc, setDoc, addDoc, deleteDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const esc    = window.AppCore.esc;
+const toast  = window.AppCore.toast;
+const fmtDKK = window.AppCore.fmtDKK;
+
+const MONTHS_LONG = ["Januar","Februar","Marts","April","Maj","Juni","Juli","August","September","Oktober","November","December"];
+
+// ── ÅRSHÅNDTERING ──
+// DATA_YEAR = året hvor budgettallene er indtastet (skabelon for alle år).
+// BUDGET_YEAR = året portalen "lever i" nu (auto = indeværende år, min. 2026).
+// Måneds-fanerne starter ved BUDGET_YEAR; for år > DATA_YEAR genbruges skabelonen.
+const DATA_YEAR   = 2026;
+const BUDGET_YEAR = (window.AppCore && window.AppCore.BUDGET_YEAR) || new Date().getFullYear();
+
+// ── BETALINGSDATOER (dit dataset) ──
+// "last" = sidste hverdag i måneden
+// PAYMENT_DAYS læses fra app-core.js – ÉN kilde for hele portalen
+// (rettes fremover kun i app-core.js)
+const PAYMENT_DAYS = (window.AppCore && window.AppCore.PAYMENT_DAYS) || {};
+
+// Starting balance on budget account - user can adjust
+let PRIMO_SALDO = 15000;
+let userPaymentDays  = {};  // { entryId: dayNumber } – overrides PAYMENT_DAYS
+let userDayOrder     = {};  // { "day-entryId": orderIndex } – order within a day
+let userPrimoOverrides = {}; // { "2026-06": amount } – manual primo override per month
+let paidStatus = {}; // { "2026-07_entryId": {paid:true, actual:1234} } – afstemning
+let manualTx = []; // manuelle ind/udbetalinger: {id, date:"2026-07-15", amount:+/-, text}
+
+let allEntries = [];
+let selectedMonth = new Date().getMonth();
+let selectedYear = BUDGET_YEAR; // 0-indexed
+let balanceChartInstance = null;
+
+// Mellemregninger af primo-saldi. getMonthPrimo ruller balancen frem fra
+// januar hver gang den kaldes, og den kaldes fra både tabel, graf og
+// buffer-beregning. Uden cache blev de samme måneder gennemregnet
+// hundredvis af gange ved hver tegning – mærkbart på en telefon.
+let primoCache = {};
+
+// Auth guard – udfylder også brugerfeltet i sidebaren
+requireAuth(() => loadData());
+
+// Hent friske data når man vender tilbage til fanen (fx efter at have
+// rettet i budgettet). Tidligere skete det ved HVERT fokusskifte, hvilket
+// på mobil betød fire fulde databasekald hver gang skærmen blev tændt.
+// Nu højst én gang i minuttet.
+let lastLoad = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  if (Date.now() - lastLoad < 60000) return;
+  loadData();
+});
+
+window.toggleSidebar = () => { document.getElementById("sidebar").classList.toggle("open"); document.getElementById("overlay").classList.toggle("show"); };
+window.closeSidebar  = () => { document.getElementById("sidebar").classList.remove("open"); document.getElementById("overlay").classList.remove("show"); };
+
+async function loadData() {
+  const doneSlow = window.AppCore.watchSlowLoad();
+  try {
+    const [budgetSnap, settingsSnap, paidSnap, manualSnap] = await Promise.all([
+      getDocs(collection(db, "budget_entries")),
+      getDocs(collection(db, "cashflow_settings")),
+      getDocs(collection(db, "payments_status")),
+      getDocs(collection(db, "manual_transactions")).catch(() => null),
+    ]);
+    doneSlow();
+    lastLoad = Date.now();
+
+    paidStatus = {};
+    paidSnap.docs.forEach(d => { paidStatus[d.id] = d.data(); });
+
+    manualTx = manualSnap ? manualSnap.docs.map(d => ({ id: d.id, ...d.data() })) : [];
+    allEntries = budgetSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Gemte betalingsdage, rækkefølge og primo-saldi
+    settingsSnap.docs.forEach(d => {
+      const data = d.data();
+      if (data.type === "payment_day") userPaymentDays[data.entryId] = data.day;
+      if (data.type === "day_order")   userDayOrder[data.entryId]    = data.order;
+      if (data.type === "primo_saldo") {
+        PRIMO_SALDO = data.amount;
+        const input = document.getElementById("primo-input");
+        if (input) input.value = data.amount;
+      }
+      if (data.type === "primo_override") {
+        userPrimoOverrides[data.monthKey] = data.amount;
+      }
+    });
+
+    primoCache = {}; // ryd mellemregninger efter nye data
+    buildMonthTabs();
+    renderMonth(selectedMonth, selectedYear);
+
+  } catch (e) {
+    doneSlow();
+    console.error("Firestore-fejl:", e);
+    /* VIGTIGT: her stod tidligere `allEntries = getDemoEntries()`.
+       Det viste opdigtede lønninger og lån som om det var jeres
+       rigtige tal – uden nogen advarsel. I en økonomiportal må der
+       aldrig gættes. Vi viser en ærlig fejl i stedet. */
+    allEntries = [];
+    showDataError();
+  }
+}
+
+function showDataError() {
+  const tl = document.getElementById("payment-timeline");
+  if (tl) {
+    tl.innerHTML =
+      '<div class="load-error">⚠️ Kunne ikke hente data fra skyen.<br>' +
+      'Tjek internetforbindelsen og genindlæs siden. Der vises bevidst ingen tal, ' +
+      'så du ikke kommer til at disponere ud fra noget forkert.</div>';
+  }
+  ["cf-primo","cf-income","cf-expenses","cf-ultimo","cf-buffer"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = "–";
+  });
+  const sub = document.getElementById("cf-buffer-sub");
+  if (sub) sub.textContent = "ingen data";
+  const tabs = document.getElementById("month-tabs");
+  if (tabs) tabs.innerHTML = "";
+  toast("Data kunne ikke hentes fra skyen", "error");
+}
+
+function buildMonthTabs() {
+  const wrap = document.getElementById("month-tabs");
+  // Var hardkodet til 2026/2027. Bruger nu samme 18-måneders vindue
+  // som grafen, så fanerne ruller automatisk med årene.
+  const months = ALL_MONTHS;
+
+  // Calculate which months might go negative (danger indicator)
+  wrap.innerHTML = months.map(({year, month}) => {
+    const key = `${year}-${String(month+1).padStart(2,"0")}`;
+    const income = allEntries.filter(e=>e.type==="income").reduce((s,e)=>s+Math.abs(getVal(e,key)),0);
+    const expenses = allEntries.filter(e=>e.type!=="income").reduce((s,e)=>s+Math.abs(getVal(e,key)),0);
+    const danger = expenses > income * 1.1;
+    const isActive = month === selectedMonth && year === selectedYear;
+    return `<button class="month-tab ${isActive?"active":""} ${danger?"danger":""}"
+      onclick="selectMonth(${month},${year})">${MONTHS_LONG[month].substring(0,3)} ${year}</button>`;
+  }).join("");
+}
+
+window.selectMonth = function(month, year) {
+  selectedMonth = month;
+  selectedYear  = year || BUDGET_YEAR;
+  buildMonthTabs();
+  renderMonth(month, selectedYear);
+};
+
+function getLastWeekday(year, month) {
+  // month is 0-indexed
+  let day = new Date(year, month+1, 0); // last day of month
+  while (day.getDay() === 0 || day.getDay() === 6) {
+    day.setDate(day.getDate()-1);
+  }
+  return day.getDate();
+}
+
+function resolveDay(val, year, month) {
+  // 30, 31 or "last" all mean last weekday of month
+  if (val === "last" || val === 30 || val === 31) return getLastWeekday(year, month);
+  // If day exceeds days in month, also use last weekday
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  if (val > daysInMonth) return getLastWeekday(year, month);
+  return val;
+}
+
+function getPaymentDay(name, year, month, entryId) {
+  // 1. User override (saved in Firestore)
+  if (entryId && userPaymentDays[entryId] !== undefined) {
+    return resolveDay(userPaymentDays[entryId], year, month);
+  }
+  // 2. Built-in PAYMENT_DAYS dataset
+  for (const [key, val] of Object.entries(PAYMENT_DAYS)) {
+    if (name.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(name.toLowerCase())) {
+      return resolveDay(val, year, month);
+    }
+  }
+  return 15; // default mid-month
+}
+
+// Returnerer FAKTISK beløb hvis posten er markeret betalt med justeret beløb,
+// ellers det budgetterede. Bruges af tabel, graf, buffer og rullende saldo.
+function getEffective(entryId, monthKey, signedBudgetAmount) {
+  const st = paidStatus[monthKey + "_" + entryId];
+  if (st && st.paid && typeof st.actual === "number" && !isNaN(st.actual)) {
+    return signedBudgetAmount >= 0 ? Math.abs(st.actual) : -Math.abs(st.actual);
+  }
+  return signedBudgetAmount;
+}
+
+function getVal(e, key) {
+  // Direct match for this month/year
+  if (e.months && e.months[key] !== undefined) return e.months[key];
+  // For år efter DATA_YEAR: brug skabelonmåneden (samme månedsnummer)
+  const [year, month] = key.split("-");
+  if (parseInt(year) > DATA_YEAR) {
+    const templateKey = DATA_YEAR + "-" + month;
+    if (e.months && e.months[templateKey] !== undefined) return e.months[templateKey];
+  }
+  // Default: monthly_amount
+  return e.monthly_amount ?? 0;
+}
+
+function getMonthPrimo(targetMonth, targetYear) {
+  const targetKey = `${targetYear}-${String(targetMonth+1).padStart(2,"0")}`;
+
+  // If user has manually set this month's primo – use that
+  if (userPrimoOverrides[targetKey] !== undefined) {
+    return userPrimoOverrides[targetKey];
+  }
+
+  if (primoCache[targetKey] !== undefined) return primoCache[targetKey];
+
+  // Otherwise find the most recent manual override and roll forward from there
+  // or roll forward from PRIMO_SALDO (Jan 2026)
+  let startYear = DATA_YEAR, startMonth = 0, balance = PRIMO_SALDO;
+
+  // Check if any override exists before targetMonth – use the latest one as anchor
+  const allMonths = [];
+  for (let y = DATA_YEAR; y <= targetYear; y++) {
+    const mEnd = (y === targetYear) ? targetMonth : 11;
+    for (let m = 0; m <= mEnd; m++) {
+      if (y === targetYear && m === targetMonth) break;
+      allMonths.push({y, m});
+    }
+  }
+  // Find latest override before target
+  for (let i = allMonths.length - 1; i >= 0; i--) {
+    const {y, m} = allMonths[i];
+    const k = `${y}-${String(m+1).padStart(2,"0")}`;
+    if (userPrimoOverrides[k] !== undefined) {
+      startYear = y; startMonth = m; balance = userPrimoOverrides[k];
+      break;
+    }
+  }
+
+  // Roll forward from anchor to target
+  let y = startYear, m = startMonth;
+  while (y < targetYear || (y === targetYear && m < targetMonth)) {
+    const k = `${y}-${String(m+1).padStart(2,"0")}`;
+    allEntries.forEach(e => {
+      const val = getVal(e, k);
+      if (!val || val === 0) return;
+      const budgetAmt = e.type === "income" ? Math.abs(val) : -Math.abs(val);
+      balance += getEffective(e.id, k, budgetAmt);
+    });
+    manualTx.forEach(mt => {
+      if (mt.date && mt.date.startsWith(k)) balance += mt.amount;
+    });
+    m++;
+    if (m > 11) { m = 0; y++; }
+  }
+  primoCache[targetKey] = Math.round(balance);
+  return primoCache[targetKey];
+}
+
+let currentMonthKeyGlobal = "";
+function renderMonth(month, year=BUDGET_YEAR) {
+  // Ryd mellemregninger: data kan være ændret siden sidste tegning
+  // (markeret betalt, nyt beløb, ny manuel postering osv.)
+  primoCache = {};
+
+  const key = `${year}-${String(month+1).padStart(2,"0")}`;
+  currentMonthKeyGlobal = key;
+  const lastDay = getLastWeekday(year, month);
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+
+  // Use rolling balance unless this is the first month (Jan 2026)
+  const isFirstMonth = (year === DATA_YEAR && month === 0);
+  const monthPrimo = isFirstMonth ? PRIMO_SALDO : getMonthPrimo(month, year);
+
+  // Update primo input – always editable, shows calculated or overridden value
+  const monthKey = `${year}-${String(month+1).padStart(2,"0")}`;
+  const primoInput = document.getElementById("primo-input");
+  if (primoInput) {
+    primoInput.value  = monthPrimo;
+    primoInput.disabled = false;
+    primoInput.style.opacity = "1";
+    const hasOverride = userPrimoOverrides[monthKey] !== undefined;
+    primoInput.style.borderColor = hasOverride ? "var(--amber)" : "";
+    primoInput.title = hasOverride
+      ? "Manuel override – klik for at nulstille til beregnet værdi"
+      : "Beregnet fra foregående måned – ret for at sætte manuelt";
+  }
+  // Store current monthKey for updatePrimo
+  window._currentMonthKey = monthKey;
+
+  // Build day-by-day transactions
+  const transactions = [];
+
+  allEntries.forEach(e => {
+    const val = getVal(e, key);
+    if (!val || val === 0) return;
+    const day = getPaymentDay(e.name, year, month, e.id);
+    const budgetAmt = e.type === "income" ? Math.abs(val) : -Math.abs(val);
+    const st = paidStatus[key + "_" + (e.id || "")];
+    transactions.push({
+      day,
+      name:    e.name,
+      id:      e.id || "",
+      amount:  getEffective(e.id, key, budgetAmt),
+      budgetAmount: budgetAmt,
+      paid:    !!(st && st.paid),
+      type:    e.type,
+      order:   userDayOrder[e.id] ?? 999
+    });
+  });
+
+  // Tilføj manuelle ind/udbetalinger for denne måned
+  manualTx.forEach(mt => {
+    if (!mt.date) return;
+    const [my, mm, md] = mt.date.split("-").map(Number);
+    if (my === year && (mm - 1) === month) {
+      transactions.push({
+        day: md,
+        name: mt.text || (mt.amount >= 0 ? "Manuel indbetaling" : "Manuel udbetaling"),
+        id: "manual_" + mt.id,
+        amount: mt.amount,
+        budgetAmount: mt.amount,
+        paid: true,
+        type: mt.amount >= 0 ? "income" : "expense",
+        isManual: true,
+        order: -1
+      });
+    }
+  });
+
+  // Sort by day, then by user-defined order within the day
+  transactions.sort((a,b) => a.day !== b.day ? a.day - b.day : a.order - b.order);
+
+  // Calculate totals
+  const income   = transactions.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
+  const expenses = transactions.filter(t=>t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0);
+
+  // Running balance - MUST start from monthPrimo (rolling balance)
+  let balance = monthPrimo;
+  const dayBalances = Array(daysInMonth+1).fill(null);
+  dayBalances[0] = balance;
+
+  let runningTx = [...transactions];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayTx = runningTx.filter(t => t.day === d);
+    dayTx.forEach(t => balance += t.amount);
+    dayBalances[d] = balance;
+  }
+  const ultimoBalance = balance;
+
+  // Update summary cards
+  document.getElementById("cf-primo").textContent    = fmtDKK(monthPrimo);
+  document.getElementById("cf-income").textContent   = fmtDKK(income);
+  document.getElementById("cf-expenses").textContent = fmtDKK(expenses);
+  document.getElementById("cf-ultimo").textContent   = fmtDKK(ultimoBalance);
+  document.getElementById("cf-ultimo").className     = "cf-value " + (ultimoBalance >= 0 ? "pos" : "neg");
+
+  // DISPONIBEL BUFFER:
+  // Scan ALL future months from today forward.
+  // Find the absolute lowest point the account will ever hit.
+  // That is the maximum you can safely withdraw TODAY without risking minus in any future month.
+  calcAndShowFutureBuffer();
+
+  // Chart
+  renderBalanceChart(year);
+
+  // Payment timeline
+  renderTimeline(transactions, dayBalances, monthPrimo);
+}
+
+// Multi-month chart state
+let chartRangeMonths = 1;
+let chartStartOffset = 0; // offset from selectedMonth
+// Dynamisk: 18 måneder fra starten af BUDGET_YEAR (ruller automatisk med årene)
+const ALL_MONTHS = (() => {
+  const arr = [];
+  let y = BUDGET_YEAR, m = 0;
+  for (let i = 0; i < 18; i++) {
+    arr.push({ year: y, month: m });
+    m++; if (m > 11) { m = 0; y++; }
+  }
+  return arr;
+})();
+
+window.setRange = function(months) {
+  chartRangeMonths = months;
+  document.querySelectorAll(".range-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById(`btn-${months}m`).classList.add("active");
+  // Update slider max
+  const slider = document.getElementById("timeline-slider");
+  if (slider) {
+    slider.max = Math.max(0, ALL_MONTHS.length - months);
+    chartStartOffset = Math.min(parseInt(slider.value), ALL_MONTHS.length - months);
+    slider.value = chartStartOffset;
+  }
+  renderMultiMonthChart();
+};
+
+window.onSlider = function(val) {
+  chartStartOffset = parseInt(val);
+  renderMultiMonthChart();
+};
+
+function renderMultiMonthChart() {
+  if (balanceChartInstance) balanceChartInstance.destroy();
+
+  const startIdx = chartStartOffset;
+  const endIdx   = Math.min(startIdx + chartRangeMonths, ALL_MONTHS.length);
+  const months   = ALL_MONTHS.slice(startIdx, endIdx);
+
+  // Update slider labels
+  const sl = document.getElementById("slider-start-label");
+  const el = document.getElementById("slider-end-label");
+  if (sl) sl.textContent = MONTHS_LONG[months[0].month] + " " + months[0].year;
+  if (el) el.textContent = MONTHS_LONG[months[months.length-1].month] + " " + months[months.length-1].year;
+
+  const labels = [];
+  const data   = [];
+
+  // ── KEY FIX: start from the correct rolling primo for the first visible month ──
+  const firstM     = months[0];
+  const isJan2026  = firstM.year === DATA_YEAR && firstM.month === 0;
+  let balance      = isJan2026 ? PRIMO_SALDO : getMonthPrimo(firstM.month, firstM.year);
+
+  months.forEach(({year, month}) => {
+    const key         = `${year}-${String(month+1).padStart(2,"0")}`;
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+
+    // ── KEY FIX: build transactions EXACTLY like renderMonth does ──
+    const txs = [];
+    allEntries.forEach(e => {
+      const val = getVal(e, key);
+      if (!val || val === 0) return;
+      // Use entryId so userPaymentDays overrides apply
+      const day   = getPaymentDay(e.name, year, month, e.id);
+      const order = userDayOrder[e.id] ?? 999;
+      const budgetAmt = e.type === "income" ? Math.abs(val) : -Math.abs(val);
+      txs.push({ day, order, amount: getEffective(e.id, key, budgetAmt) });
+    });
+    manualTx.forEach(mt => {
+      if (!mt.date) return;
+      const [my, mm, md] = mt.date.split("-").map(Number);
+      if (my === year && (mm - 1) === month) txs.push({ day: md, order: -1, amount: mt.amount });
+    });
+    // Sort exactly like renderMonth: by day, then by user order
+    txs.sort((a, b) => a.day !== b.day ? a.day - b.day : a.order - b.order);
+
+    // Walk day by day
+    for (let d = 1; d <= daysInMonth; d++) {
+      txs.filter(t => t.day === d).forEach(t => balance += t.amount);
+      labels.push(`${d}. ${MONTHS_LONG[month].substring(0,3)}`);
+      data.push(Math.round(balance));
+    }
+  });
+
+  const minVal = Math.min(...data);
+
+  balanceChartInstance = new Chart(document.getElementById("balanceChart"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        data,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        tension: 0.15,
+        fill: {
+          target: { value: 0 },
+          above: "rgba(26,158,110,0.08)",
+          below: "rgba(232,64,64,0.10)"
+        },
+        segment: {
+          borderColor: ctx => ctx.p1.parsed.y < 0 ? "#e84040" : "#1a9e6e",
+        }
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode:"index", intersect:false },
+      plugins: {
+        legend: { display:false },
+        tooltip: {
+          callbacks: {
+            label: ctx => " Saldo: " + fmtDKK(ctx.raw),
+            title: ctx => ctx[0].label
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display:false },
+          ticks: {
+            font:{ size:10 }, color:"#8899aa", maxTicksLimit:18,
+            callback: function(val, idx) {
+              const lbl = this.getLabelForValue(val);
+              return lbl && lbl.startsWith("1.") ? lbl.substring(3) : "";
+            }
+          }
+        },
+        y: {
+          grid: { color:"rgba(0,0,0,0.05)" },
+          ticks: { font:{size:11}, color:"#8899aa", callback: v => v>=1000?(v/1000).toFixed(0)+"t":v },
+          afterDataLimits: scale => {
+            if (minVal < 0) scale.min = minVal - 2000;
+            else scale.min = 0;
+          }
+        }
+      }
+    }
+  });
+}
+
+/* Stiller grafen på den valgte måned.
+
+   FEJL RETTET: funktionen læste årstallet via `arguments[2]`, men blev
+   kun kaldt med to argumenter. Årstallet var derfor altid undefined og
+   faldt tilbage til BUDGET_YEAR – så valgte man fx juli 2027, hoppede
+   grafen til juli 2026. De to første parametre blev i øvrigt aldrig
+   brugt, så nu tages årstallet ind direkte. */
+function renderBalanceChart(year) {
+  const idx = ALL_MONTHS.findIndex(m => m.month === selectedMonth && m.year === year);
+  chartStartOffset = Math.max(0, idx !== -1 ? idx : 0);
+  const slider = document.getElementById("timeline-slider");
+  if (slider) {
+    slider.max   = Math.max(0, ALL_MONTHS.length - chartRangeMonths);
+    slider.value = chartStartOffset;
+  }
+  renderMultiMonthChart();
+}
+
+function renderTimeline(transactions, dayBalances, primoForMonth=PRIMO_SALDO) {
+  const tlDiv = document.getElementById("payment-timeline");
+
+  // Group by day (already sorted by day then order)
+  const byDay = {};
+  transactions.forEach(t => {
+    if (!byDay[t.day]) byDay[t.day] = [];
+    byDay[t.day].push(t);
+  });
+
+  let html = "";
+  let running = primoForMonth;
+  const sortedDays = Object.keys(byDay).map(Number).sort((a,b)=>a-b);
+  const allTxFlat  = sortedDays.flatMap(d => byDay[d]); // flat list for cross-day moves
+
+  // Afstemnings-bar: betalt vs. budget for måneden
+  const expTx       = transactions.filter(t => t.amount < 0);
+  const paidTx      = expTx.filter(t => t.paid);
+  const paidActual  = paidTx.reduce((s,t) => s + Math.abs(t.amount), 0);
+  const paidBudget  = paidTx.reduce((s,t) => s + Math.abs(t.budgetAmount), 0);
+  const deviation   = paidActual - paidBudget;
+  if (expTx.length) {
+    const devColor = deviation > 0 ? "var(--red)" : deviation < 0 ? "var(--green)" : "var(--ink-3)";
+    const devText  = deviation === 0 ? "ingen afvigelse"
+      : (deviation > 0 ? "+" : "−") + fmtDKK(Math.abs(deviation)) + " ift. budget";
+    html += `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;">
+      <span style="font-size:12px;font-weight:600;color:var(--ink-2);">AFSTEMNING</span>
+      <span style="font-size:12.5px;color:var(--ink-2);">${paidTx.length} af ${expTx.length} betalinger markeret betalt</span>
+      <div style="flex:1;min-width:80px;height:5px;background:var(--border);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${expTx.length?Math.round(paidTx.length/expTx.length*100):0}%;background:var(--green);border-radius:3px;"></div></div>
+      <span style="font-size:12.5px;font-weight:600;color:${devColor};">${paidTx.length ? devText : ""}</span>
+    </div>`;
+  }
+
+  // Table header
+  html += `<div style="display:grid;grid-template-columns:32px 1fr 110px 120px;gap:0;border-bottom:2px solid var(--border2);padding:8px 4px;margin-bottom:4px;">
+    <span></span>
+    <span style="font-size:11px;font-weight:600;color:var(--ink-3);letter-spacing:0.4px;">POSTERING</span>
+    <span style="font-size:11px;font-weight:600;color:var(--ink-3);text-align:right;letter-spacing:0.4px;">BELØB</span>
+    <span style="font-size:11px;font-weight:600;color:var(--ink-3);text-align:right;letter-spacing:0.4px;padding-right:8px;">SALDO EFTER</span>
+  </div>`;
+
+  // Primo saldo row
+  html += `<div style="display:grid;grid-template-columns:32px 1fr 110px 120px;padding:10px 4px;border-bottom:1px solid var(--border);background:var(--blue-l);border-radius:6px;margin-bottom:4px;">
+    <span></span>
+    <span style="font-size:13px;font-weight:500;color:var(--blue);">🏦 Primo saldo</span>
+    <span style="font-size:13px;text-align:right;color:var(--ink-3);">–</span>
+    <span style="font-size:14px;font-weight:600;text-align:right;color:var(--blue);padding-right:8px;">${fmtDKK(primoForMonth)}</span>
+  </div>`;
+
+  sortedDays.forEach(day => {
+    const dayTxs  = byDay[day];
+    const dayTotal = dayTxs.reduce((s,t) => s+t.amount, 0);
+    const isLastDay = day === sortedDays[sortedDays.length-1];
+
+    // Day header with edit-day button
+    html += `<div style="display:flex;align-items:center;padding:10px 4px 4px;margin-top:6px;border-top:1.5px solid var(--border2);">
+      <span style="font-size:12px;font-weight:700;color:var(--ink-2);letter-spacing:0.3px;text-transform:uppercase;flex:1;">Den ${day}.</span>
+      <span style="font-size:12px;font-weight:600;color:${dayTotal>=0?'var(--green)':'var(--red)'};margin-right:10px;">${dayTotal>=0?'+':''}${fmtDKK(dayTotal)}</span>
+    </div>`;
+
+    // Each transaction
+    dayTxs.forEach((t, i) => {
+      running += t.amount;
+      const isLast   = i === dayTxs.length - 1;
+      const danger   = running < 0;
+      const warning  = running >= 0 && running < 3000;
+      const balColor = danger ? "var(--red)" : warning ? "var(--amber)" : "var(--green)";
+      const rowBg    = t.paid ? "rgba(26,158,110,0.05)" : danger ? "rgba(232,64,64,0.04)" : warning ? "rgba(217,119,6,0.03)" : "transparent";
+      const icon     = danger ? "⚠️" : warning ? "⚡" : "";
+      const txIdx    = allTxFlat.indexOf(t);
+      const canUp    = txIdx > 0;
+      const canDown  = txIdx < allTxFlat.length - 1;
+
+      // Edit day button – shown inline
+      const editDayBtn = `<button class="tl-edit-day" onclick="editPaymentDay('${t.id}',this.dataset.n,${day})" data-n="${esc(t.name)}" title="Ret betalingsdag">
+        ✏️ ${day}.
+      </button>`;
+
+      html += `<div class="tl-row" style="display:grid;grid-template-columns:28px 1fr 110px 120px;padding:7px 4px;border-bottom:1px solid ${isLast&&isLastDay?'var(--border2)':'var(--border)'};background:${rowBg};border-radius:${danger||warning?'6px':'0'};" id="tx-${t.id}">
+        <div class="tl-controls" style="flex-direction:column;align-items:center;gap:0;padding-top:3px;">
+          ${t.isManual?'':`<button class="tl-order-btn" onclick="moveTx('${t.id}',${day},'up')" title="Flyt op" ${!canUp?'disabled style="opacity:0.2"':''}>▲</button>`}
+          ${t.isManual?'':`<button class="tl-order-btn" onclick="moveTx('${t.id}',${day},'down')" title="Flyt ned" ${!canDown?'disabled style="opacity:0.2"':''}>▼</button>`}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${t.isManual?'<span style="width:20px;height:20px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;color:var(--purple);">●</span>':`<button class="paid-check ${t.paid?'is-paid':''}" onclick="togglePaid('${t.id}')" title="${t.paid?'Markeret betalt – klik for at fortryde':'Markér som betalt'}">${t.paid?'✓':''}</button>`}
+          <span style="font-size:13.5px;color:var(--ink);flex:1;${t.paid&&!t.isManual?'opacity:0.75;':''}${t.isManual?'cursor:pointer;':''}" ${t.isManual?`onclick="editManual('${t.id}')" title="Klik for at redigere"`:''}>${t.isManual?'✎ ':''}${esc(t.name)}${t.isManual?' <span style="font-size:10px;color:var(--purple);background:var(--purple-l);padding:1px 6px;border-radius:8px;margin-left:4px;">manuel</span>':''}</span>
+          <span class="tl-controls">${t.isManual?'':editDayBtn}${t.paid&&!t.isManual?`<button class="tl-edit-day" onclick="editActual('${t.id}')" title="Ret faktisk beløb" style="color:var(--green-d);background:var(--green-l);border-color:rgba(26,158,110,0.25);">kr</button>`:''}</span>
+        </div>
+        <span style="font-size:13.5px;font-weight:500;text-align:right;color:${t.amount>0?'var(--green)':'var(--red)'};">${t.amount>0?'+':''}${fmtDKK(t.amount)}${t.paid && Math.abs(t.amount)!==Math.abs(t.budgetAmount)?`<br><span style="font-size:10px;color:var(--ink-3);font-weight:400;">budg. ${fmtDKK(Math.abs(t.budgetAmount))}</span>`:''}</span>
+        <span style="font-size:13.5px;font-weight:600;text-align:right;color:${balColor};padding-right:8px;">${icon} ${fmtDKK(running)}</span>
+      </div>`;
+    });
+  });
+
+  tlDiv.innerHTML = html || `<div style="color:var(--ink-3);font-size:13px;padding:16px 0;">Ingen betalinger denne måned</div>`;
+}
+
+// ── EDIT PAYMENT DAY ──
+window.editPaymentDay = function(id, name, currentDay) {
+  const newDay = prompt(`Hvilken dag i måneden skal "${name}" betales?
+(Skriv et tal 1-31 eller "last" for sidste hverdag)`, currentDay);
+  if (newDay === null) return;
+
+  const parsed = newDay.trim().toLowerCase() === "last" ? "last" : parseInt(newDay);
+  if (parsed !== "last" && (isNaN(parsed) || parsed < 1 || parsed > 31)) {
+    alert("Ugyldig dag – skriv et tal mellem 1 og 31 eller 'last'");
+    return;
+  }
+
+  userPaymentDays[id] = parsed;
+  savePaymentDaySetting(id, parsed);
+  renderMonth(selectedMonth, selectedYear);
+};
+
+async function savePaymentDaySetting(entryId, day) {
+  try {
+    await setDoc(doc(db, "cashflow_settings", `day_${entryId}`), {
+      type: "payment_day", entryId, day
+    });
+  } catch(e) { toast("Betalingsdag kunne ikke gemmes – tjek forbindelsen", "error"); }
+}
+
+// ── MOVE TRANSACTION ORDER ──
+window.moveTx = function(id, day, direction) {
+  /* FEJL RETTET: her stod DATA_YEAR (altid 2026) i stedet for det
+     viste år. Rokerede man om på en post i fx marts 2027, blev
+     rækkefølgen regnet ud fra marts 2026 – altså potentielt en helt
+     anden liste end den, man kiggede på. */
+  const key = `${selectedYear}-${String(selectedMonth+1).padStart(2,"0")}`;
+  const allTx = allEntries
+    .filter(e => { const v = getVal(e, key); return v && v !== 0; })
+    .map(e => ({
+      id: e.id,
+      day: getPaymentDay(e.name, selectedYear, selectedMonth, e.id),
+      order: userDayOrder[e.id] ?? 999
+    }))
+    .sort((a,b) => a.day !== b.day ? a.day - b.day : a.order - b.order);
+
+  const idx = allTx.findIndex(t => t.id === id);
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= allTx.length) return;
+
+  // Define a and b
+  const a = allTx[idx];
+  const b = allTx[swapIdx];
+
+  // Assign clean sequential order values to all entries first
+  allTx.forEach((t, i) => {
+    userDayOrder[t.id] = i * 10;
+  });
+
+  // Swap the two entries
+  const oA = userDayOrder[a.id];
+  const oB = userDayOrder[b.id];
+  userDayOrder[a.id] = oB;
+  userDayOrder[b.id] = oA;
+
+  // Save both – applies to ALL months
+  saveDayOrderSetting(a.id, userDayOrder[a.id]);
+  saveDayOrderSetting(b.id, userDayOrder[b.id]);
+
+  renderMonth(selectedMonth, selectedYear);
+};
+
+async function saveDayOrderSetting(entryId, order) {
+  try {
+    await setDoc(doc(db, "cashflow_settings", `order_${entryId}`), {
+      type: "day_order", key: entryId, entryId, order
+    });
+  } catch(e) { toast("Rækkefølge kunne ikke gemmes – tjek forbindelsen", "error"); }
+}
+
+window.updatePrimo = function(val) {
+  const amount = parseFloat(val);
+  if (isNaN(amount)) return;
+  const key = window._currentMonthKey || "2026-01";
+  const isJan2026 = key === "2026-01";
+
+  if (isJan2026) {
+    // Jan 2026: update base PRIMO_SALDO
+    PRIMO_SALDO = amount;
+    savePrimoSaldo(amount);
+  } else {
+    // Other months: save as override
+    userPrimoOverrides[key] = amount;
+    savePrimoOverride(key, amount);
+  }
+  renderMonth(selectedMonth, selectedYear);
+};
+
+window.resetPrimo = function() {
+  const key = window._currentMonthKey;
+  if (!key || key === "2026-01") return;
+  delete userPrimoOverrides[key];
+  deletePrimoOverride(key);
+  renderMonth(selectedMonth, selectedYear);
+};
+
+async function savePrimoSaldo(amount) {
+  try {
+    await setDoc(doc(db, "cashflow_settings", "primo_saldo"), {
+      type: "primo_saldo", amount
+    });
+  } catch(e) { toast("Primo saldo kunne ikke gemmes – tjek forbindelsen", "error"); }
+}
+
+async function savePrimoOverride(monthKey, amount) {
+  try {
+    await setDoc(doc(db, "cashflow_settings", `primo_override_${monthKey}`), {
+      type: "primo_override", monthKey, amount
+    });
+  } catch(e) { toast("Primo-ændring kunne ikke gemmes – tjek forbindelsen", "error"); }
+}
+
+async function deletePrimoOverride(monthKey) {
+  // deleteDoc er allerede importeret øverst – den dynamiske import her
+  // hentede hele Firestore-modulet igen ved hvert klik.
+  try {
+    await deleteDoc(doc(db, "cashflow_settings", `primo_override_${monthKey}`));
+  } catch(e) { toast("Nulstilling kunne ikke gemmes – tjek forbindelsen", "error"); }
+}
+
+/* getDemoEntries() er fjernet med vilje.
+   Den indeholdt opdigtede lønninger og lån, som blev vist som om det
+   var familiens rigtige tal, hvis Firestore var utilgængelig. I en
+   økonomiportal må der aldrig vises gættede tal – se showDataError(). */
+
+// ── AFSTEMNING: markér betalt / ret faktisk beløb ──
+window.togglePaid = async function(id) {
+  if (!id) return;
+  const docId = currentMonthKeyGlobal + "_" + id;
+  const cur = paidStatus[docId];
+  if (cur && cur.paid) {
+    delete paidStatus[docId];
+    try { await deleteDoc(doc(db, "payments_status", docId)); }
+    catch(e) { toast("Kunne ikke gemme – tjek forbindelsen", "error"); }
+  } else {
+    paidStatus[docId] = { paid: true, monthKey: currentMonthKeyGlobal, entryId: id };
+    try { await setDoc(doc(db, "payments_status", docId), paidStatus[docId]); }
+    catch(e) { toast("Kunne ikke gemme – tjek forbindelsen", "error"); }
+  }
+  renderMonth(selectedMonth, selectedYear);
+};
+
+window.editActual = async function(id) {
+  const docId = currentMonthKeyGlobal + "_" + id;
+  const st = paidStatus[docId];
+  if (!st || !st.paid) return;
+  const entry = allEntries.find(e => e.id === id);
+  const budget = Math.abs(getVal(entry, currentMonthKeyGlobal) || 0);
+  const input = prompt(`Faktisk betalt beløb for "${entry ? entry.name : ""}"?\n(Budgetteret: ${fmtDKK(budget)})`, st.actual ?? budget);
+  if (input === null) return;
+  const num = parseFloat(String(input).replace(",", "."));
+  if (isNaN(num) || num < 0) { toast("Ugyldigt beløb", "error"); return; }
+  st.actual = num;
+  try { await setDoc(doc(db, "payments_status", docId), st); toast("Faktisk beløb gemt ✓", "success"); }
+  catch(e) { toast("Kunne ikke gemme – tjek forbindelsen", "error"); }
+  renderMonth(selectedMonth, selectedYear);
+};
+
+function calcAndShowFutureBuffer() {
+  // ALWAYS start from TODAY's actual primo - not the browsed month
+  // This answers: "what can I withdraw RIGHT NOW without ever going minus?"
+
+  const now      = new Date();
+  const nowYear  = now.getFullYear();
+  const nowMonth = now.getMonth(); // 0-indexed
+
+  // Get today's actual starting balance (Jan 2026 primo rolled forward to today)
+  const nowDay      = now.getDate();
+  const todayPrimo  = getMonthPrimo(nowMonth, nowYear);
+
+  let balance       = todayPrimo;
+  /* FEJL RETTET: globalLow startede på saldoen PRIMO indeværende måned,
+     og scanningen begyndte den 1. Var det den 20., kunne "laveste punkt"
+     derfor være en dag, der for længst var passeret – ubrugeligt som svar
+     på "hvad kan jeg hæve i dag". Nu tælles kun dagen i dag og frem med. */
+  let globalLow     = null;
+  let globalLowDesc = "i dag";
+  let monthsScanned = 0;
+
+  // Scan from TODAY's month through all future months
+  const futureMonths = ALL_MONTHS.filter(m =>
+    m.year > nowYear || (m.year === nowYear && m.month >= nowMonth)
+  );
+
+  futureMonths.forEach(({year, month}) => {
+    const key         = `${year}-${String(month+1).padStart(2,"0")}`;
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+    const monthName   = MONTHS_LONG[month] + " " + year;
+
+    // Check for manual primo override for this month
+    if (userPrimoOverrides[key] !== undefined && monthsScanned > 0) {
+      balance = userPrimoOverrides[key];
+    }
+
+    // Build transactions exactly like renderMonth
+    const txs = [];
+    allEntries.forEach(e => {
+      const val = getVal(e, key);
+      if (!val || val === 0) return;
+      const day   = getPaymentDay(e.name, year, month, e.id);
+      const order = userDayOrder[e.id] ?? 999;
+      const budgetAmt = e.type === "income" ? Math.abs(val) : -Math.abs(val);
+      txs.push({ day, order, amount: getEffective(e.id, key, budgetAmt) });
+    });
+    manualTx.forEach(mt => {
+      if (!mt.date) return;
+      const [my, mm, md] = mt.date.split("-").map(Number);
+      if (my === year && (mm - 1) === month) txs.push({ day: md, order: -1, amount: mt.amount });
+    });
+    txs.sort((a,b) => a.day !== b.day ? a.day - b.day : a.order - b.order);
+
+    // Walk day by day
+    const isNowMonth = (year === nowYear && month === nowMonth);
+    for (let d = 1; d <= daysInMonth; d++) {
+      txs.filter(t => t.day === d).forEach(t => balance += t.amount);
+
+      // Dage der allerede er gået i indeværende måned er historie –
+      // de skal indgå i saldoen, men ikke i "laveste punkt fremad".
+      if (isNowMonth && d < nowDay) continue;
+
+      if (globalLow === null || balance < globalLow) {
+        globalLow     = balance;
+        globalLowDesc = (isNowMonth && d === nowDay) ? "i dag" : `d. ${d}. ${monthName}`;
+      }
+    }
+    monthsScanned++;
+  });
+
+  // Buffer = det laveste punkt kontoen når fra i dag og frem.
+  // Positivt: så meget kan du hæve nu uden at gå i minus senere.
+  // Negativt: kontoen er allerede på vej under nul.
+  const buffer = Math.round(globalLow === null ? balance : globalLow);
+
+  const bufferEl    = document.getElementById("cf-buffer");
+  const bufferSubEl = document.getElementById("cf-buffer-sub");
+
+  // Colour coding:
+  // < 0      → Rød
+  // 0-5000   → Gul
+  // 5000-10000 → Grøn
+  // > 10000  → Blå
+  let cardBg, cardBorder, labelColor, valueColor;
+  if (buffer < 0) {
+    cardBg = "var(--red-l)";      cardBorder = "rgba(232,64,64,0.4)";
+    labelColor = "var(--red)";    valueColor = "var(--red)";
+  } else if (buffer < 5000) {
+    cardBg = "var(--amber-l)";    cardBorder = "rgba(217,119,6,0.4)";
+    labelColor = "var(--amber)";  valueColor = "var(--amber)";
+  } else if (buffer < 10000) {
+    cardBg = "var(--green-l)";    cardBorder = "rgba(26,158,110,0.4)";
+    labelColor = "var(--green-d)"; valueColor = "var(--green)";
+  } else {
+    cardBg = "var(--blue-l)";     cardBorder = "rgba(37,99,235,0.4)";
+    labelColor = "var(--blue)";   valueColor = "var(--blue)";
+  }
+
+  const cardEl  = document.getElementById("cf-buffer-card");
+  const labelEl = document.getElementById("cf-buffer-label");
+  if (cardEl)  { cardEl.style.background = cardBg; cardEl.style.borderColor = cardBorder; }
+  if (labelEl) { labelEl.style.color = labelColor; }
+
+  if (bufferEl) {
+    bufferEl.textContent = fmtDKK(Math.max(0, buffer));
+    bufferEl.style.color = valueColor;
+    bufferEl.className   = "cf-value";
+  }
+  if (bufferSubEl) {
+    bufferSubEl.style.color = labelColor;
+    if (buffer < 0) {
+      bufferSubEl.innerHTML = `⚠️ Kontoen går i minus ${globalLowDesc} (${fmtDKK(buffer)})`;
+    } else {
+      bufferSubEl.innerHTML = `Laveste punkt: ${fmtDKK(buffer)}<br><span style="opacity:0.7">${globalLowDesc}</span>`;
+    }
+  }
+}
+
+let manualType = "out"; // "out" eller "in"
+
+window.openManualModal = function(editId) {
+  const modal = document.getElementById("manual-modal");
+  document.getElementById("m-edit-id").value = editId || "";
+  document.getElementById("m-delete-btn").style.display = editId ? "block" : "none";
+
+  if (editId) {
+    const mt = manualTx.find(x => x.id === editId);
+    if (mt) {
+      setManualType(mt.amount >= 0 ? "in" : "out");
+      document.getElementById("m-amount").value = Math.abs(mt.amount);
+      document.getElementById("m-date").value   = mt.date || "";
+      document.getElementById("m-text").value   = mt.text || "";
+    }
+  } else {
+    setManualType("out");
+    document.getElementById("m-amount").value = "";
+    // Default dato = i dag
+    const t = new Date();
+    document.getElementById("m-date").value = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;
+    document.getElementById("m-text").value = "";
+  }
+  modal.style.display = "flex";
+};
+
+window.closeManualModal = function() {
+  document.getElementById("manual-modal").style.display = "none";
+};
+
+window.setManualType = function(type) {
+  manualType = type;
+  const outBtn = document.getElementById("m-type-out");
+  const inBtn  = document.getElementById("m-type-in");
+  if (type === "out") {
+    outBtn.style.border = "1.5px solid var(--red)";
+    outBtn.style.background = "var(--red-l)";
+    outBtn.style.color = "var(--red)";
+    outBtn.style.fontWeight = "500";
+    inBtn.style.border = "1.5px solid var(--border2)";
+    inBtn.style.background = "var(--white)";
+    inBtn.style.color = "var(--ink-2)";
+    inBtn.style.fontWeight = "400";
+  } else {
+    inBtn.style.border = "1.5px solid var(--green)";
+    inBtn.style.background = "var(--green-l)";
+    inBtn.style.color = "var(--green-d)";
+    inBtn.style.fontWeight = "500";
+    outBtn.style.border = "1.5px solid var(--border2)";
+    outBtn.style.background = "var(--white)";
+    outBtn.style.color = "var(--ink-2)";
+    outBtn.style.fontWeight = "400";
+  }
+};
+
+window.saveManual = async function() {
+  const rawAmount = parseFloat(String(document.getElementById("m-amount").value).replace(",", "."));
+  const date = document.getElementById("m-date").value;
+  const text = document.getElementById("m-text").value.trim();
+
+  if (isNaN(rawAmount) || rawAmount <= 0) { toast("Skriv et gyldigt beløb", "error"); return; }
+  if (!date) { toast("Vælg en dato", "error"); return; }
+
+  const amount = manualType === "out" ? -Math.abs(rawAmount) : Math.abs(rawAmount);
+  const editId = document.getElementById("m-edit-id").value;
+  const data = { date, amount, text };
+
+  try {
+    if (editId) {
+      await setDoc(doc(db, "manual_transactions", editId), data);
+      manualTx = manualTx.map(mt => mt.id === editId ? { id: editId, ...data } : mt);
+    } else {
+      const ref = await addDoc(collection(db, "manual_transactions"), data);
+      manualTx.push({ id: ref.id, ...data });
+      window.AppCore.logAudit(db, { addDoc, collection }, amount < 0 ? "Manuel udbetaling" : "Manuel indbetaling", `${text || "(ingen tekst)"} · ${fmtDKK(amount)} · ${date}`);
+    }
+    toast("Transaktion gemt ✓", "success");
+  } catch(e) {
+    toast("Kunne ikke gemme – tjek forbindelsen", "error");
+    if (!editId) manualTx.push({ id: "local_" + Date.now(), ...data });
+  }
+  closeManualModal();
+  renderMonth(selectedMonth, selectedYear);
+};
+
+window.deleteManual = async function() {
+  const editId = document.getElementById("m-edit-id").value;
+  if (!editId) return;
+  if (!confirm("Slet denne transaktion?")) return;
+  try { await deleteDoc(doc(db, "manual_transactions", editId)); }
+  catch(e) { toast("Kunne ikke slette – tjek forbindelsen", "error"); }
+  manualTx = manualTx.filter(mt => mt.id !== editId);
+  closeManualModal();
+  renderMonth(selectedMonth, selectedYear);
+};
+
+window.editManual = function(rowId) {
+  // rowId er "manual_<firestoreId>"
+  const id = rowId.replace(/^manual_/, "");
+  openManualModal(id);
+};
+
+// Luk modal ved klik udenfor
+document.getElementById("manual-modal").addEventListener("click", function(e) {
+  if (e.target === this) closeManualModal();
+});
+// fmtDKK kommer nu fra app-core.js (var før defineret lokalt på fem sider)
+</script>
+<!-- Manuel transaktion modal -->
+<div id="manual-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--white);border-radius:20px;padding:28px;width:100%;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:6px;">Tilføj eller udtræk penge</div>
+    <div style="font-size:13px;color:var(--ink-3);margin-bottom:20px;">Engangstransaktion på budgetkontoen</div>
+    <input type="hidden" id="m-edit-id">
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <button id="m-type-out" onclick="setManualType('out')" style="flex:1;height:44px;border-radius:10px;border:1.5px solid var(--red);background:var(--red-l);color:var(--red);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;">− Udtræk</button>
+      <button id="m-type-in" onclick="setManualType('in')" style="flex:1;height:44px;border-radius:10px;border:1.5px solid var(--border2);background:var(--white);color:var(--ink-2);font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">+ Indbetal</button>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:12px;font-weight:500;color:var(--ink-2);margin-bottom:5px;">Beløb (kr.)</label>
+      <input type="number" id="m-amount" step="0.01" placeholder="0" style="width:100%;height:46px;border:1.5px solid var(--border2);border-radius:10px;padding:0 14px;font-family:'DM Sans',sans-serif;font-size:16px;color:var(--ink);outline:none;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:12px;font-weight:500;color:var(--ink-2);margin-bottom:5px;">Dato for eksekvering</label>
+      <input type="date" id="m-date" style="width:100%;height:46px;border:1.5px solid var(--border2);border-radius:10px;padding:0 14px;font-family:'DM Sans',sans-serif;font-size:15px;color:var(--ink);outline:none;">
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:12px;font-weight:500;color:var(--ink-2);margin-bottom:5px;">Tekst / formål</label>
+      <input type="text" id="m-text" placeholder="fx Ny vaskemaskine" style="width:100%;height:46px;border:1.5px solid var(--border2);border-radius:10px;padding:0 14px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--ink);outline:none;">
+    </div>
+    <button onclick="saveManual()" style="width:100%;height:44px;background:var(--green);color:#fff;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;">Gem transaktion</button>
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button id="m-delete-btn" onclick="deleteManual()" style="display:none;flex:1;height:44px;background:var(--red-l);color:var(--red);border:1.5px solid rgba(232,64,64,0.25);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">Slet</button>
+      <button onclick="closeManualModal()" style="flex:1;height:44px;background:none;color:var(--ink-2);border:1.5px solid var(--border2);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;">Annuller</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

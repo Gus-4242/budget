@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a9e6e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Familiebudget">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="app-core.css?v=27">
+<script src="app-core.js?v=27" defer></script>
+<title>Familiebudget · Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* Farver, mørkt tema og reset ligger i app-core.css */
+
+  html, body { height: 100%; }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 20px;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 0%, var(--green-t) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, var(--blue-l) 0%, transparent 60%),
+      var(--surface);
+  }
+
+  .card {
+    background: var(--white);
+    border-radius: 20px;
+    padding: 48px 44px 40px;
+    width: 100%;
+    max-width: 420px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    animation: fadeUp 0.4s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+
+  .logo-icon {
+    width: 42px; height: 42px;
+    background: var(--green);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px; color: #fff;
+  }
+
+  .logo-text { line-height: 1.2; }
+  .logo-name  { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--ink); }
+  .logo-sub   { font-size: 12px; color: var(--ink-3); font-weight: 300; }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 26px;
+    color: var(--ink);
+    margin-bottom: 6px;
+    line-height: 1.2;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: var(--ink-3);
+    margin-bottom: 28px;
+    font-weight: 300;
+  }
+
+  .field { margin-bottom: 16px; }
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-2);
+    margin-bottom: 6px;
+    letter-spacing: 0.3px;
+  }
+
+  input[type=email],
+  input[type=password] {
+    width: 100%;
+    height: 46px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 0 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--white);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+  }
+
+  input:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(26,158,110,0.12);
+  }
+
+  .btn {
+    width: 100%;
+    height: 48px;
+    border: none;
+    border-radius: 12px;
+    background: var(--green);
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background 0.15s, transform 0.1s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+
+  .btn:hover  { background: var(--green-d); }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { background: var(--ink-3); cursor: default; }
+
+  .divider {
+    display: flex; align-items: center; gap: 10px;
+    margin: 20px 0;
+    font-size: 12px; color: var(--ink-3);
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1;
+    height: 1px; background: var(--border);
+  }
+
+  .btn-google {
+    width: 100%;
+    height: 46px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    background: var(--white);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .btn-google:hover { background: var(--surface); border-color: var(--ink-3); }
+
+  .btn-google svg { width: 18px; height: 18px; flex-shrink: 0; }
+
+  .error-msg {
+    display: none;
+    background: var(--red-l);
+    border: 1px solid var(--red);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: var(--red);
+    margin-top: 12px;
+  }
+  .error-msg.show { display: block; }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .footer-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-3);
+    margin-top: 24px;
+    font-weight: 300;
+  }
+
+  @media (max-width: 480px) {
+    .card { padding: 36px 24px 28px; border-radius: 16px; }
+    h1 { font-size: 22px; }
+  }
+</style>
+<!-- Service worker registreres nu af app-core.js (med "ny version klar"-besked).
+     Den tidligere separate registrering her var en dublet uden opdateringsbanner. -->
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">
+    <div class="logo-icon">N</div>
+    <div class="logo-text">
+      <div class="logo-name">Familiebudget</div>
+      <div class="logo-sub">Familien Nørgaard · 2026</div>
+    </div>
+  </div>
+
+  <h1>Velkommen tilbage</h1>
+  <p class="subtitle">Log ind for at se jeres økonomi</p>
+
+  <div class="field">
+    <label for="email">Email</label>
+    <input type="email" id="email" placeholder="din@email.dk" autocomplete="email">
+  </div>
+  <div class="field">
+    <label for="password">Adgangskode</label>
+    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+  </div>
+
+  <button class="btn" id="loginBtn" onclick="loginEmail()">
+    <span id="btnText">Log ind</span>
+    <div class="spinner" id="spinner"></div>
+  </button>
+
+  <div class="divider">eller</div>
+
+  <button class="btn-google" onclick="loginGoogle()">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+    Fortsæt med Google
+  </button>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <p class="footer-note">🔒 Kun Gustaf og Jette har adgang</p>
+</div>
+
+<script type="module">
+/* Samme initialisering som resten af portalen – se db.js */
+import { auth, ALLOWED_USERS, onAuthStateChanged } from "./db.js?v=27";
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// Allerede logget ind? → gå direkte til dashboard
+onAuthStateChanged(auth, user => {
+  if (user && ALLOWED_USERS[user.email]) {
+    window.location.href = "dashboard.html";
+  }
+});
+
+function showError(msg) {
+  const el = document.getElementById("errorMsg");
+  el.textContent = msg;
+  el.classList.add("show");
+}
+function setLoading(on) {
+  document.getElementById("spinner").style.display = on ? "block" : "none";
+  document.getElementById("btnText").style.display = on ? "none" : "block";
+  document.getElementById("loginBtn").disabled = on;
+}
+
+window.loginEmail = async function() {
+  const email    = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+  document.getElementById("errorMsg").classList.remove("show");
+
+  if (!email || !password) { showError("Udfyld venligst email og adgangskode."); return; }
+
+  setLoading(true);
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    if (!ALLOWED_USERS[cred.user.email]) {
+      await auth.signOut();
+      showError("Din konto har ikke adgang til dette system.");
+    }
+    // onAuthStateChanged håndterer redirect
+  } catch(e) {
+    const msgs = {
+      "auth/user-not-found":  "Ukendt email-adresse.",
+      "auth/wrong-password":  "Forkert adgangskode.",
+      "auth/invalid-email":   "Ugyldig email-adresse.",
+      "auth/too-many-requests": "For mange forsøg – prøv igen om lidt.",
+    };
+    showError(msgs[e.code] || "Login mislykkedes. Prøv igen.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+window.loginGoogle = async function() {
+  document.getElementById("errorMsg").classList.remove("show");
+  try {
+    const provider = new GoogleAuthProvider();
+    const cred = await signInWithPopup(auth, provider);
+    if (!ALLOWED_USERS[cred.user.email]) {
+      await auth.signOut();
+      showError("Din Google-konto har ikke adgang til dette system.");
+    }
+  } catch(e) {
+    if (e.code !== "auth/popup-closed-by-user") {
+      showError("Google-login mislykkedes. Prøv igen.");
+    }
+  }
+};
+
+// Enter-tast
+document.getElementById("password").addEventListener("keydown", e => {
+  if (e.key === "Enter") window.loginEmail();
+});
+</script>
+</body>
+</html>

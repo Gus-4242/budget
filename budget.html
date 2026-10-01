@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a9e6e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Familiebudget">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="app-core.css?v=27">
+<script src="app-core.js?v=27" defer></script>
+<title>Familiebudget · Budget</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+/* Kun budget-specifik stil. Sidebar, topbar, kort, knapper, farver
+   og mørkt tema ligger nu i app-core.css. */
+
+ .year-tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+ .year-tab { padding: 5px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; color: var(--ink-2); border: none; background: none; transition: background 0.1s; }
+ .year-tab.active { background: var(--white); font-weight: 500; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+ 
+ .content { padding: 24px 28px; }
+
+ 
+ /* .sum-card/.sum-label/.sum-value/.pos/.neg/.info ligger i app-core.css */
+ .summary-bar {
+ display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+ margin-bottom: 24px;
+ }
+
+ 
+ .budget-table-wrap { background: var(--white); border: 1px solid var(--border); border-radius: 16px; overflow-x: auto; overflow-y: visible; } .tbl-header { border-radius: 16px 16px 0 0; }
+ #budget-body { padding-top: 0; }
+ .cat-section:first-child .cat-header { border-top: none; }
+
+ 
+ .tbl-header {
+ display: grid;
+ grid-template-columns: 380px 85px repeat(12, minmax(55px, 1fr));
+ background: var(--white);
+ border-bottom: 2px solid var(--border2);
+ position: sticky; top: 0px; z-index: 40;
+ box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+ }
+ .th {
+ padding: 11px 5px; font-size: 12px; font-weight: 600; color: var(--ink-2);
+ letter-spacing: 0.3px; text-align: right; border-right: 1px solid var(--border);
+ }
+ .th:first-child { text-align: left; padding-left: 18px; }
+ .th.cur-month { background: var(--month-hl); color: var(--green-d); }
+
+ 
+ .cat-section { margin-top: 0; }
+ .cat-header {
+ display: grid;
+ grid-template-columns: 380px 85px repeat(12, minmax(55px, 1fr));
+ background: var(--cat-bg);
+ border-top: 3px solid var(--cat-border);
+ border-bottom: 1.5px solid var(--border2);
+ cursor: pointer;
+ user-select: none;
+ min-height: 46px;
+ }
+ /* Her stod tidligere et løst "F" efter den afsluttende } – det gjorde
+    hover-reglen nedenfor ugyldig, så kategorirækken ikke reagerede. */
+ .cat-header:hover { background: var(--cat-bg-hover); }
+ .cat-label {
+ padding: 13px 18px; font-size: 15px; font-weight: 700; color: var(--cat-ink);
+ display: flex; align-items: center; gap: 8px; letter-spacing: -0.1px;
+ }
+ .cat-label .arrow { font-size: 11px; transition: transform 0.2s; color: var(--cat-arrow); margin-right: 2px; }
+ .cat-section.collapsed .cat-label .arrow { transform: rotate(-90deg); }
+ .cat-total { padding: 13px 8px; font-size: 15px; font-weight: 700; text-align: right; border-right: 1px solid var(--border); display: flex; align-items: center; justify-content: flex-end; }
+ .cat-month { padding: 13px 8px; font-size: 13px; font-weight: 500; text-align: right; border-right: 1px solid var(--border); color: var(--ink-2); display: flex; align-items: center; justify-content: flex-end; }
+ .cat-section.collapsed .entries-wrap { display: none; }
+
+ 
+ .entry-row {
+ display: grid;
+ grid-template-columns: 380px 85px repeat(12, minmax(55px, 1fr));
+ border-bottom: 1px solid var(--border);
+ transition: background 0.1s;
+ }
+ .entry-row:hover { background: var(--row-hover); }
+ .entry-row:last-child { border-bottom: none; }
+
+ .entry-name-cell {
+ padding: 6px 8px 6px 28px;
+ display: flex; align-items: center; gap: 6px;
+ }
+ .entry-name {
+ font-size: 14px; color: var(--ink); flex: 1;
+ white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+ cursor: pointer; padding: 4px 6px; border-radius: 6px;
+ transition: background 0.1s;
+ }
+ .entry-name:hover { background: var(--green-l); color: var(--green-d); }
+ .entry-name-input {
+ flex: 1; border: 1.5px solid var(--green); border-radius: 6px;
+ font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink);
+ padding: 4px 8px; outline: none; background: var(--green-l);
+ }
+ .btn-move-up, .btn-move-down {
+ width: 24px; height: 24px; border-radius: 6px; border: none;
+ background: none; color: var(--ink-3); cursor: pointer;
+ display: flex; align-items: center; justify-content: center;
+ opacity: 0; transition: opacity 0.1s, background 0.1s, color 0.1s; flex-shrink: 0;
+ }
+ .entry-row:hover .btn-move-up,
+ .entry-row:hover .btn-move-down { opacity: 1; }
+ .btn-move-up:hover, .btn-move-down:hover { background: var(--amber-l); color: var(--amber); }
+ .btn-edit-row, .btn-delete-row {
+ width: 24px; height: 24px; border-radius: 6px; border: none;
+ background: none; color: var(--ink-3); cursor: pointer;
+ display: flex; align-items: center; justify-content: center;
+ opacity: 0; transition: opacity 0.1s, background 0.1s, color 0.1s; flex-shrink: 0;
+ }
+ .entry-row:hover .btn-edit-row,
+ .entry-row:hover .btn-delete-row { opacity: 1; }
+ .btn-edit-row:hover { background: var(--blue-l); color: var(--blue); }
+ .btn-delete-row:hover { background: var(--red-l); color: var(--red); }
+
+ 
+ .cell-val {
+ padding: 0 5px;
+ font-size: 14px; text-align: right; color: var(--ink);
+ border-right: 1px solid var(--border);
+ display: flex; align-items: center; justify-content: flex-end;
+ cursor: pointer; transition: background 0.1s;
+ min-height: 42px;
+ }
+ .cell-val:hover { background: var(--green-l); }
+ .cell-val.cur-month { background: rgba(26,158,110,0.05); }
+ .cell-val.cur-month:hover { background: var(--green-l); }
+
+ .cell-input {
+ width: 100%; border: none; background: var(--green-l);
+ font-family: 'DM Sans', sans-serif; font-size: 14px;
+ text-align: right; color: var(--green-d); outline: none;
+ padding: 0 5px; height: 42px;
+ }
+
+ .cell-annual { padding: 0 6px; font-size: 13px; font-weight: 500; text-align: right; color: var(--ink-2); border-right: 1px solid var(--border); display: flex; align-items: center; justify-content: flex-end; }
+
+ 
+ .btn-add-row {
+ display: flex; align-items: center; gap: 6px;
+ padding: 10px 18px 10px 28px;
+ font-size: 13px; color: var(--green); cursor: pointer;
+ background: none; border: none; font-family: 'DM Sans', sans-serif; font-weight: 500;
+ }
+ .btn-add-row:hover { color: var(--green-d); }
+
+ 
+ .save-indicator {
+ position: fixed; bottom: 20px; right: 20px;
+ background: var(--ink); color: #fff;
+ padding: 10px 18px; border-radius: 10px; font-size: 13px;
+ opacity: 0; transform: translateY(8px);
+ transition: opacity 0.2s, transform 0.2s;
+ z-index: 200;
+ }
+ .save-indicator.show { opacity: 1; transform: translateY(0); }
+ .save-indicator.saved { background: var(--green); }
+ .save-indicator.error { background: var(--red); }
+
+ 
+ .admin-only { display: none; }
+
+ 
+ @media (max-width: 768px) {
+ /* Mobil: ALLE 12 måneder tilgængelige via vandret scroll
+    (før blev kun Jan-Mar vist – man kunne ikke se nuværende måned) */
+ .budget-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+ .tbl-header, .entry-row, .cat-header {
+  grid-template-columns: 200px 70px repeat(12, minmax(62px, 1fr));
+  min-width: 1100px;
+ }
+ .summary-bar { grid-template-columns: 1fr 1fr !important; }
+ }
+</style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar" data-active="budget"></aside>
+
+<div class="main">
+ <header class="topbar">
+ <div style="display:flex;align-items:center;gap:12px;">
+ <button class="hamburger" onclick="toggleSidebar()">
+ <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+ </button>
+ <span class="topbar-title">Budget 2026</span>
+ </div>
+ <div style="display:flex;align-items:center;gap:10px;">
+ <div class="year-tabs">
+ <button class="year-tab active">2026</button>
+ </div>
+ <button onclick="exportBudget()" title="Download budget som CSV/Excel" style="display:flex;align-items:center;gap:6px;background:var(--green);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(26,158,110,0.25);">
+ <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+ Eksportér
+ </button>
+ </div>
+ </header>
+
+ <div class="content">
+
+ <div class="summary-bar" style="grid-template-columns:repeat(4,1fr);">
+ <div class="sum-card">
+  <div class="sum-label">ÅRLIGE INDTÆGTER</div>
+  <div class="sum-value pos" id="total-income">Indlæser...</div>
+  <div style="font-size:12px;color:var(--ink-3);margin-top:5px;" id="total-income-sub"></div>
+ </div>
+ <div class="sum-card">
+  <div class="sum-label">ÅRLIGE UDGIFTER</div>
+  <div class="sum-value neg" id="total-expenses">Indlæser...</div>
+  <div style="font-size:12px;color:var(--ink-3);margin-top:5px;" id="total-expenses-sub"></div>
+ </div>
+ <div class="sum-card">
+  <div class="sum-label">MÅNEDLIG GNSN. INDTÆGT</div>
+  <div class="sum-value pos" id="total-income-avg">Indlæser...</div>
+  <div style="font-size:12px;color:var(--ink-3);margin-top:5px;">gennemsnit pr. måned</div>
+ </div>
+ <div class="sum-card">
+  <div class="sum-label">MÅNEDLIGT RESULTAT</div>
+  <div class="sum-value" id="total-result">Indlæser...</div>
+  <div style="font-size:12px;color:var(--ink-3);margin-top:5px;" id="total-result-sub"></div>
+ </div>
+</div>
+
+ <div class="budget-table-wrap" id="budget-wrap">
+
+ <div class="tbl-header">
+ <div class="th">Post</div>
+ <div class="th">Årligt</div>
+ <div class="th">Jan</div>
+ <div class="th">Feb</div>
+ <div class="th">Mar</div>
+ <div class="th">Apr</div>
+ <div class="th">Maj</div>
+ <div class="th cur-month">Jun</div>
+ <div class="th">Jul</div>
+ <div class="th">Aug</div>
+ <div class="th">Sep</div>
+ <div class="th">Okt</div>
+ <div class="th">Nov</div>
+ <div class="th">Dec</div>
+ </div>
+
+ <div id="budget-body"></div>
+
+ </div>
+ </div>
+
+  <!-- MÅNEDSOVERSIGT -->
+  <div style="padding:0 28px 32px;">
+    <div style="font-family:'DM Serif Display',serif;font-size:20px;color:var(--ink);margin-bottom:4px;margin-top:32px;">Månedsoversigt</div>
+    <div style="font-size:13px;color:var(--ink-3);margin-bottom:16px;">Indtægter vs. udgifter – overskud/underskud pr. måned</div>
+    <div style="background:var(--white);border:1px solid var(--border);border-radius:16px;overflow-x:auto;">
+      <table id="monthly-summary-table" style="width:100%;border-collapse:collapse;min-width:900px;">
+        <thead>
+          <tr id="msum-header" style="background:var(--surface);border-bottom:2px solid var(--border2);"></tr>
+        </thead>
+        <tbody id="monthly-summary-body">
+          <tr><td colspan="13" style="padding:20px;text-align:center;color:var(--ink-3);font-size:13px;">Indlæser...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="save-indicator" id="saveIndicator">Gemmer...</div>
+
+<script type="module">
+/* Firebase initialiseres ét sted – se db.js.
+   Det er dér, rettelsen af den langsomme mobilforbindelse ligger. */
+import { db, requireAuth } from "./db.js?v=27";
+import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const esc    = window.AppCore.esc;
+const toast  = window.AppCore.toast;
+const fmtDKK = window.AppCore.fmtDKK;
+
+// Årshåndtering: DATA_YEAR = skabelonår for budgettal; BUDGET_YEAR = visningsår
+const DATA_YEAR   = 2026;
+const BUDGET_YEAR = (window.AppCore && window.AppCore.BUDGET_YEAR) || new Date().getFullYear();
+
+const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
+const CUR_MONTH = new Date().getMonth(); // 0-indexed, Jun = 5
+let isAdmin = false;
+let allEntries = [];
+
+// ── Auth guard ── (udfylder også brugerfeltet i sidebaren)
+requireAuth(u => {
+ isAdmin = u.isAdmin;
+ loadBudget();
+});
+
+window.toggleSidebar = () => { document.getElementById("sidebar").classList.toggle("open"); document.getElementById("overlay").classList.toggle("show"); };
+window.closeSidebar = () => { document.getElementById("sidebar").classList.remove("open"); document.getElementById("overlay").classList.remove("show"); };
+
+// ── DEFAULT DATA (matches spreadsheet) ──
+const DEFAULT_CATEGORIES = [
+ {
+ id: "income", label: "Indtægter", type: "income",
+ entries: [
+ { name: "Gustaf – løn", monthly: 43350 },
+ { name: "Jette – løn", monthly: 0 },
+ { name: "Andet", monthly: 0 },
+ ]
+ },
+ {
+ id: "hus", label: "Faste Udgifter – Hus og Bolig", type: "expense",
+ entries: [
+ { name: "Totalkredit Lån – Bøskovkrogen 9", monthly: 0, note: "se Lån" },
+ { name: "Grenaa Vandcenter Djurs", monthly: 0 },
+ { name: "Grenaa varmevæerk", monthly: 2670 },
+ { name: "El – EWii", monthly: 1100, months: { "2026-01": 1050, "2026-02": 1100 } },
+ { name: "Norddjurs Kommune Ejendomsskat + Afgif.", monthly: 0, note: "variabel" },
+ { name: "Ajour Ejendomsadministration – Vand", monthly: 0 },
+ { name: "Lasse Ditto forb.afgifter Rutte beløbspe", monthly: 0 },
+ { name: "Dag Renovation opkrævning", monthly: 0 },
+ ]
+ },
+ {
+ id: "laan", label: "Bank Lån", type: "expense",
+ entries: [
+ { name: "Lån 1 (tidl. driftsforbrugslån Sparbank)", monthly: 6070 },
+ { name: "Lån 2 (tidl. SUPER8 bllån)", monthly: 2797 },
+ ]
+ },
+ {
+ id: "forsikring", label: "Forsikringer", type: "expense",
+ entries: [
+ { name: "Husforsikring Alm Brand", monthly: 694.75, months:{"2026-02":587} },
+ { name: "Indbofors. 2 biler, Gas Ulykke", monthly: 1525, months:{"2026-02":1501} },
+ { name: "Ulykke Forsikring Jette", monthly: 95.33 },
+ { name: "Børneulykkesforsikring Linnea og Mads", monthly: 260 },
+ { name: "Rejseforsikring", monthly: 0 },
+ { name: "Dyrekassen / Forsikring Eiko", monthly: 0 },
+ { name: "Sygeforsikring Jette + Linnea - Gruppe 2", monthly: 2270 },
+ { name: "Sygeforsikring Gustaf + Mads Gruppe 1", monthly: 2750 },
+ { name: "Tilbetaling af lån og kredit", monthly: 3470 },
+ { name: "Danica Pension – Jette Sundhedsforsikring Tema", monthly: 1505 },
+ { name: "VetCare", monthly: 6900, months:{"2026-02":6900} },
+ ]
+ },
+ {
+ id: "bil", label: "Bil og Transport", type: "expense",
+ entries: [
+ { name: "Vægtafgift Skoda", monthly: 0 },
+ { name: "Vægtafgift Obed Karl", monthly: 0 },
+ { name: "Dieselkifte – Jette +Gustaf (fastovf)", monthly: 0 },
+ ]
+ },
+ {
+ id: "tv", label: "TV + TLF + INTERNET", type: "expense",
+ entries: [
+ { name: "Telmore SG Internet", monthly: 299 },
+ { name: "Mads Mobil", monthly: 0 },
+ { name: "Linnea/Mobil", monthly: 59 },
+ { name: "Viaplay", monthly: 529, months:{"2026-06":529} },
+ { name: "Viiastar Student", monthly: 299 },
+ ]
+ },
+ {
+ id: "fagforening", label: "Fagforening", type: "expense",
+ entries: [
+ { name: "GBL – LÆRENE", monthly: 1029, months:{"2026-05":1029} },
+ { name: "Jette FTF-A", monthly: 71.67, note: "gul markering",
+ months: {"2026-01":71.67,"2026-02":71.67,"2026-03":71.67,"2026-04":71.67,"2026-05":71.67,"2026-06":71.67,"2026-07":71.67,"2026-08":71.67,"2026-09":71.67,"2026-10":71.67,"2026-11":71.67,"2026-12":71.67} },
+ { name: "DANSK SOCIALRÅDGIVERFORENING", monthly: 0, months:{"2026-02":246} },
+ ]
+ },
+ {
+ id: "sport", label: "Sport og Fritid", type: "expense",
+ entries: [
+ { name: "Grenaa Pingvinernes Sauna", monthly: 0 },
+ { name: "GVI, Sport og Fitness Konto (200 kr/mdr)", monthly: 200 },
+ { name: "Linnea Håndbold", monthly: 0 },
+ ]
+ },
+ {
+ id: "kortlaan", label: "Kortidslån – Banklån", type: "expense",
+ entries: [
+ { name: "Ledg2", monthly: 0 },
+ { name: "Ledg3", monthly: 0 },
+ ]
+ },
+ {
+ id: "ovrige", label: "Øvrige Udgifter", type: "expense",
+ entries: [
+ { name: "Norddjurs Kommune – Juniorklub", monthly: 74, months:{"2026-01":74,"2026-02":74} },
+ { name: "ADHD-foreningen", monthly: 300, months:{"2026-02":300} },
+ { name: "Hundefoder – Eiko", monthly: 360.47, months:{"2026-01":360.47,"2026-02":360.47,"2026-06":360.47} },
+ { name: "Landbrugslotteri", monthly: 0, months:{"2026-06":54} },
+ { name: "Omgangsmidler/Vestligmidl", monthly: 0 },
+ ]
+ },
+ {
+ id: "opsparing", label: "Opsparing & Overførsler", type: "savings",
+ entries: [
+ { name: "Til Gavekonto", monthly: 1450 },
+ { name: "Til Linnea konfirmation", monthly: 600 },
+ { name: "Til Linnea Efterskole 2030", monthly: 158.67 },
+ { name: "El-Cykel afbetaling (fl Linnea konf. konto)", monthly: 0 },
+ { name: "", monthly: 0 },
+ { name: "Til Sommerferie Opsparing", monthly: 2000 },
+ { name: "Til Hus & Have Opsparing", monthly: 2500 },
+ { name: "Overførsel Afbetaling Jette Forsikring lån", monthly: 500 },
+ { name: "Fast overførsel til madkonto", monthly: 7000 },
+ ]
+ },
+];
+
+// ── LOAD ──
+async function loadBudget() {
+ const doneSlow = window.AppCore.watchSlowLoad();
+ try {
+ const snap = await getDocs(collection(db, "budget_entries"));
+ doneSlow();
+ if (snap.empty) {
+ // Første gang: læg skabelonen ind i databasen
+ await seedDefaultData();
+ } else {
+ allEntries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+ }
+ } catch(err) {
+ doneSlow();
+ console.error("Firestore-fejl:", err);
+ /* Her blev skabelontallene tidligere vist, som om det var det
+    rigtige budget. Det er misvisende – skabelonen er kun tænkt
+    til allerførste opsætning. Vis en ærlig fejl i stedet. */
+ document.getElementById("budget-body").innerHTML =
+   '<div class="load-error" style="padding:28px 18px;">⚠️ Kunne ikke hente budgettet fra skyen.<br>' +
+   'Tjek forbindelsen og genindlæs siden.</div>';
+ ["total-income","total-expenses","total-income-avg","total-result"].forEach(id => {
+   const el = document.getElementById(id); if (el) el.textContent = "–";
+ });
+ toast("Budgettet kunne ikke hentes", "error");
+ return;
+ }
+ renderBudget(); // tegner også månedsoversigten
+}
+
+async function seedDefaultData() {
+ allEntries = [];
+ for (const cat of DEFAULT_CATEGORIES) {
+ for (const e of cat.entries) {
+ if (!e.name) continue;
+ const data = {
+ name: e.name,
+ category: cat.label,
+ category_id: cat.id,
+ type: cat.type,
+ monthly_amount: e.monthly || 0,
+ months: e.months || {},
+ note: e.note || "",
+ order: cat.entries.indexOf(e),
+ year: 2026
+ };
+ const ref = await addDoc(collection(db, "budget_entries"), data);
+ allEntries.push({ id: ref.id, ...data });
+ }
+ }
+}
+
+// ── RENDER ──
+function renderBudget() {
+ const body = document.getElementById("budget-body");
+ body.innerHTML = "";
+
+ // Build category map
+ const catMap = {};
+ for (const cat of DEFAULT_CATEGORIES) {
+ catMap[cat.id] = { ...cat, entries: [] };
+ }
+
+ // Map Firestore entries to categories, sorted by order field
+ allEntries.forEach(e => {
+ const cid = e.category_id;
+ if (catMap[cid]) catMap[cid].entries.push(e);
+ });
+ // Sort each category's entries by order
+ Object.values(catMap).forEach(cat => {
+ cat.entries.sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+ });
+
+ // Fallback: use default categories if Firestore is empty
+ if (allEntries.length === 0) {
+ DEFAULT_CATEGORIES.forEach(cat => { catMap[cat.id] = { ...cat }; });
+ }
+
+ let totalIncome = 0, totalExpenses = 0;
+
+ for (const cat of DEFAULT_CATEGORIES) {
+ const c = catMap[cat.id];
+ const entries = c.entries.length ? c.entries : (allEntries.length === 0 ? cat.entries : []);
+ if (!entries.length && allEntries.length > 0) continue;
+
+ const section = document.createElement("div");
+ section.className = "cat-section";
+ section.dataset.catId = cat.id;
+
+ // Calculate category annual total
+ let catAnnual = 0;
+ entries.forEach(e => {
+ for (let m = 0; m < 12; m++) {
+ const key = `${DATA_YEAR}-${String(m+1).padStart(2,"0")}`;
+ catAnnual += Math.abs(getMonthVal(e, key));
+ }
+ });
+
+ if (cat.type === "income") totalIncome += catAnnual / 12;
+ else totalExpenses += catAnnual / 12;
+
+ // Category header
+ const monthTotals = MONTHS_SHORT.map((_, mi) => {
+ const key = `${DATA_YEAR}-${String(mi+1).padStart(2,"0")}`;
+ return entries.reduce((s, e) => s + Math.abs(getMonthVal(e, key)), 0);
+ });
+
+ const hdr = document.createElement("div");
+ hdr.className = "cat-header";
+ hdr.innerHTML = `
+ <div class="cat-label"><span class="arrow">▼</span> ${cat.label}</div>
+ <div class="cat-total ${cat.type==="income"?"pos":"neg"}">${fmtK(catAnnual)}</div>
+ ${monthTotals.map((v,i) => `<div class="cat-month ${i===CUR_MONTH?"cur-month":""}">${v>0?fmtK(v):""}</div>`).join("")}
+ `;
+ hdr.onclick = () => section.classList.toggle("collapsed");
+ section.appendChild(hdr);
+
+ // Entries
+ const wrap = document.createElement("div");
+ wrap.className = "entries-wrap";
+
+ entries.forEach((e, ei) => {
+ if (!e.name && allEntries.length > 0) return;
+ const row = document.createElement("div");
+ row.className = "entry-row";
+ row.dataset.entryId = e.id || "";
+
+ const annual = calcAnnual(e);
+
+ row.innerHTML = `
+ <div class="entry-name-cell">
+ <span class="entry-name" title="${esc(e.name||"")}">${e.name ? esc(e.name) : '<em style="color:var(--ink-3)">Tom post</em>'}</span>
+ ${isAdmin ? `<button class="btn-move-up" title="Flyt op" onclick="moveRow('${e.id||""}','up')">
+ <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+ </button>
+ <button class="btn-move-down" title="Flyt ned" onclick="moveRow('${e.id||""}','down')">
+ <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+ </button>
+ <button class="btn-edit-row" title="Ret navn" onclick="editName(this.closest('.entry-name-cell').querySelector('.entry-name'),'${e.id||""}')">
+ <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+ </button>
+ <button class="btn-delete-row" title="Slet post" onclick="deleteRow('${e.id||""}',this)">
+ <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+ </button>` : ""}
+ </div>
+ <div class="cell-annual">${annual > 0 ? fmtK(annual) : ""}</div>
+ ${MONTHS_SHORT.map((_, mi) => {
+ const key = `${DATA_YEAR}-${String(mi+1).padStart(2,"0")}`;
+ const val = getMonthVal(e, key);
+ return `<div class="cell-val ${mi===CUR_MONTH?"cur-month":""}" data-key="${key}" data-id="${e.id||""}" data-ei="${ei}" data-cid="${cat.id}" onclick="startEdit(this)">${val !== 0 ? fmtNoSign(val) : ""}</div>`;
+ }).join("")}
+ `;
+ wrap.appendChild(row);
+ });
+
+ // Add row button (admin only)
+ if (isAdmin) {
+ const addBtn = document.createElement("button");
+ addBtn.className = "btn-add-row";
+ addBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Tilføj post`;
+ addBtn.onclick = () => addRow(cat.id, cat.label, cat.type);
+ wrap.appendChild(addBtn);
+ }
+
+ section.appendChild(wrap);
+ body.appendChild(section);
+ }
+
+ // Summary – totalIncome/totalExpenses are monthly averages at this point
+ const yearInc = totalIncome * 12;
+ const yearExp = totalExpenses * 12;
+ const monthResult = totalIncome - totalExpenses;
+
+ document.getElementById("total-income").textContent       = fmtDKK(yearInc);
+ document.getElementById("total-income-sub").textContent   = `gns. ${fmtDKK(totalIncome)} / mdr`;
+ document.getElementById("total-expenses").textContent     = fmtDKK(yearExp);
+ document.getElementById("total-expenses-sub").textContent = `gns. ${fmtDKK(totalExpenses)} / mdr`;
+ document.getElementById("total-income-avg").textContent   = fmtDKK(totalIncome);
+ document.getElementById("total-result").textContent       = fmtDKK(monthResult);
+ document.getElementById("total-result").className         = "sum-value " + (monthResult >= 0 ? "pos" : "neg");
+ document.getElementById("total-result-sub").textContent   = `${fmtDKK(yearInc - yearExp)} overskud/år`;
+
+ // Månedsoversigten hører til samme data – tegn den altid med
+ renderMonthlySummary();
+}
+
+// ── EDITING ──
+window.startEdit = function(cell) {
+ if (!isAdmin) return; // Jette can view but not edit
+ const existing = cell.querySelector("input");
+ if (existing) return;
+
+ const key = cell.dataset.key;
+ const id = cell.dataset.id;
+ const curVal = cell.textContent.trim().replace(/\./g,"").replace(",",".");
+
+ const input = document.createElement("input");
+ input.type = "text";
+ input.className = "cell-input";
+ input.value = curVal === "" ? "" : curVal;
+ input.placeholder = "0";
+ cell.textContent = "";
+ cell.appendChild(input);
+ input.focus();
+ input.select();
+
+ const save = async () => {
+ const raw = input.value.replace(",",".").trim();
+ const num = raw === "" ? 0 : parseFloat(raw);
+ cell.textContent = num !== 0 ? fmtNoSign(num) : "";
+
+ if (!id) return;
+ const oldVal = curVal === "" ? 0 : parseFloat(curVal);
+ if (num === oldVal || (isNaN(num) && isNaN(oldVal))) return; // uændret – gem ikke
+ showSave("Gemmer...", "");
+ try {
+ const entryRef = doc(db, "budget_entries", id);
+ const safeNum = isNaN(num) ? 0 : num;
+ await updateDoc(entryRef, { [`months.${key}`]: safeNum });
+ // Update local cache
+ const entry = allEntries.find(e => e.id === id);
+ if (entry) { entry.months = entry.months || {}; entry.months[key] = safeNum; }
+ showSave("Gemt ✓", "saved");
+ updateAnnual(cell.closest(".entry-row"), allEntries.find(e => e.id === id));
+ updateSummary();
+ // Månedsoversigten nederst blev før kun tegnet ved sideindlæsning
+ // og stod derfor med forældede tal efter hver rettelse.
+ renderMonthlySummary();
+ // Budgetrettelser er den hyppigste ændring i portalen – de bør også
+ // stå i "Seneste ændringer" på dashboardet.
+ window.AppCore.logAudit(db, { addDoc, collection }, "Ændrede budgetpost",
+   `${entry ? entry.name : "post"} · ${key} · ${fmtDKK(oldVal)} → ${fmtDKK(safeNum)}`);
+ } catch(e) {
+ showSave("Fejl – prøv igen", "error");
+ }
+ };
+
+ input.addEventListener("blur", save);
+ input.addEventListener("keydown", e => {
+ if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+ if (e.key === "Escape") { input.blur(); }
+ if (e.key === "Tab") {
+ e.preventDefault();
+ input.blur();
+ // Move to next cell
+ const row = cell.closest(".entry-row");
+ const cells = [...row.querySelectorAll(".cell-val")];
+ const idx = cells.indexOf(cell);
+ if (cells[idx+1]) window.startEdit(cells[idx+1]);
+ }
+ });
+};
+
+async function addRow(catId, catLabel, type) {
+ showSave("Tilføjer post...", "");
+ try {
+ const data = {
+ name: "Ny post", category: catLabel, category_id: catId,
+ type, monthly_amount: 0, months: {}, year: DATA_YEAR, order: 99
+ };
+ const ref = await addDoc(collection(db, "budget_entries"), data);
+ allEntries.push({ id: ref.id, ...data });
+ showSave("Post tilføjet ✓", "saved");
+ renderBudget();
+ } catch(e) { showSave("Fejl – prøv igen", "error"); }
+}
+
+window.editName = function(span, id) {
+ if (!isAdmin) return;
+ const cell = span.closest(".entry-name-cell");
+ const curName = span.textContent.trim();
+
+ const input = document.createElement("input");
+ input.type = "text";
+ input.className = "entry-name-input";
+ input.value = curName === "Tom post" ? "" : curName;
+ input.placeholder = "Postnavn...";
+ span.replaceWith(input);
+ input.focus();
+ input.select();
+
+ const save = async () => {
+ const newName = input.value.trim() || "Ny post";
+ const newSpan = document.createElement("span");
+ newSpan.className = "entry-name";
+ newSpan.title = "Klik for at rette navn";
+ newSpan.textContent = newName;
+ newSpan.onclick = () => window.editName(newSpan, id);
+ input.replaceWith(newSpan);
+
+ if (!id) return;
+ showSave("Gemmer navn...", "");
+ try {
+ await updateDoc(doc(db, "budget_entries", id), { name: newName });
+ const entry = allEntries.find(e => e.id === id);
+ if (entry) entry.name = newName;
+ showSave("Navn gemt ✓", "saved");
+ } catch(e) { showSave("Fejl – prøv igen", "error"); }
+ };
+
+ input.addEventListener("blur", save);
+ input.addEventListener("keydown", e => {
+ if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+ if (e.key === "Escape") { input.value = curName; input.blur(); }
+ });
+};
+
+window.moveRow = async function(id, direction) {
+ if (!isAdmin || !id) return;
+
+ // Find entry and its category siblings
+ const entry = allEntries.find(e => e.id === id);
+ if (!entry) return;
+
+ const siblings = allEntries
+ .filter(e => e.category_id === entry.category_id)
+ .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+ const idx = siblings.findIndex(e => e.id === id);
+ const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+
+ if (swapIdx < 0 || swapIdx >= siblings.length) return; // Already at top/bottom
+
+ const swapEntry = siblings[swapIdx];
+
+ // Swap order values
+ const orderA = entry.order ?? idx;
+ const orderB = swapEntry.order ?? swapIdx;
+ entry.order = orderB;
+ swapEntry.order = orderA;
+
+ // Save both to Firestore
+ showSave("Gemmer rækkefølge...", "");
+ try {
+ await updateDoc(doc(db, "budget_entries", id), { order: entry.order });
+ await updateDoc(doc(db, "budget_entries", swapEntry.id), { order: swapEntry.order });
+ showSave("Rækkefølge gemt ✓", "saved");
+ renderBudget();
+ } catch(e) {
+ showSave("Fejl – prøv igen", "error");
+ }
+};
+
+window.deleteRow = async function(id, btn) {
+ if (!isAdmin || !id) return;
+ if (!confirm("Er du sikker på at du vil slette denne post?")) return;
+ showSave("Sletter...", "");
+ try {
+ await deleteDoc(doc(db, "budget_entries", id));
+ allEntries = allEntries.filter(e => e.id !== id);
+ showSave("Post slettet ✓", "saved");
+ renderBudget();
+ } catch(e) { showSave("Fejl – prøv igen", "error"); }
+};
+
+function updateAnnual(row, entry) {
+ if (!row || !entry) return;
+ const ann = calcAnnual(entry);
+ const ac = row.querySelector(".cell-annual");
+ if (ac) ac.textContent = ann > 0 ? fmtK(ann) : "";
+}
+
+// Kategorier der faktisk vises i tabellen. renderBudget springer poster
+// med ukendt category_id over; uden samme filter her kunne de fire
+// nøgletalskort ændre sig blot fordi man rettede en celle.
+const KNOWN_CAT_IDS = new Set(DEFAULT_CATEGORIES.map(c => c.id));
+
+function updateSummary() {
+ let yearInc = 0, yearExp = 0;
+ allEntries.filter(e => KNOWN_CAT_IDS.has(e.category_id)).forEach(e => {
+  const ann = calcAnnual(e);
+  if (e.type === "income") yearInc += ann;
+  else yearExp += ann;
+ });
+ const avgInc = yearInc / 12;
+ const avgExp = yearExp / 12;
+ const monthResult = avgInc - avgExp;
+
+ document.getElementById("total-income").textContent     = fmtDKK(yearInc);
+ document.getElementById("total-income-sub").textContent = `gns. ${fmtDKK(avgInc)} / mdr`;
+ document.getElementById("total-expenses").textContent   = fmtDKK(yearExp);
+ document.getElementById("total-expenses-sub").textContent = `gns. ${fmtDKK(avgExp)} / mdr`;
+ document.getElementById("total-income-avg").textContent = fmtDKK(avgInc);
+ document.getElementById("total-result").textContent     = fmtDKK(monthResult);
+ document.getElementById("total-result").className       = "sum-value " + (monthResult >= 0 ? "pos" : "neg");
+ document.getElementById("total-result-sub").textContent = `${fmtDKK(yearInc - yearExp)} overskud/år`;
+}
+
+// ── HELPERS ──
+function getMonthVal(e, key) {
+ if (e.months && e.months[key] !== undefined) return e.months[key];
+ return e.monthly_amount ?? e.monthly ?? 0;
+}
+
+function calcAnnual(e) {
+ let total = 0;
+ for (let m = 1; m <= 12; m++) {
+ const key = `${DATA_YEAR}-${String(m).padStart(2,"0")}`;
+ total += Math.abs(getMonthVal(e, key));
+ }
+ return total;
+}
+
+function fmtK(n) {
+ if (n === 0) return "";
+ return new Intl.NumberFormat("da-DK", { maximumFractionDigits: 0 }).format(n);
+}
+
+function fmtNoSign(n) {
+ if (n === 0) return "";
+ return new Intl.NumberFormat("da-DK", { maximumFractionDigits: 2 }).format(Math.abs(n));
+}
+
+window.exportBudget = function() {
+  const rows = [];
+  allEntries.forEach(e => {
+    const row = { Kategori: e.category || "", Post: e.name || "", Type: e.type || "" };
+    for (let m = 1; m <= 12; m++) {
+      const key = `${DATA_YEAR}-${String(m).padStart(2,"0")}`;
+      row[MONTHS_SHORT[m-1]] = (e.months && e.months[key] != null) ? e.months[key] : (e.monthly_amount || 0);
+    }
+    row["Årligt"] = calcAnnual(e);
+    rows.push(row);
+  });
+  window.AppCore.exportCSV("budget", rows);
+};
+// fmtDKK kommer nu fra app-core.js (var før defineret lokalt på fem sider)
+
+// ── MÅNEDSOVERSIGT ──
+function renderMonthlySummary() {
+  const MONTHS_LONG = ["Januar","Februar","Marts","April","Maj","Juni","Juli","August","September","Oktober","November","December"];
+  const MONTHS_SHORT2 = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
+  const CUR_M = new Date().getMonth();
+
+  // Build header
+  const hdr = document.getElementById("msum-header");
+  if (hdr) {
+    hdr.innerHTML = `<th style="text-align:left;padding:12px 18px;font-size:12px;font-weight:600;color:var(--ink-2);min-width:160px;">POST</th>` +
+      MONTHS_SHORT2.map((m,i) => `<th style="padding:12px 8px;font-size:12px;font-weight:600;color:${i===CUR_M?'var(--green-d)':'var(--ink-2)'};text-align:right;${i===CUR_M?'background:var(--month-hl);':''}">${m}</th>`).join("");
+  }
+
+  // Separate income vs expenses
+  const incomeEntries  = allEntries.filter(e => e.type === "income");
+  const expenseEntries = allEntries.filter(e => e.type !== "income");
+
+  const tbody = document.getElementById("monthly-summary-body");
+  if (!tbody) return;
+
+  let rows = "";
+
+  // Section helper
+  const sectionHeader = (label, color) =>
+    `<tr><td colspan="13" style="padding:10px 18px 4px;font-size:12px;font-weight:600;color:${color};letter-spacing:0.4px;background:var(--surface);border-top:2px solid var(--border2);">${label}</td></tr>`;
+
+  const dataRow = (label, vals, bold=false, colorFn=null) => {
+    const style = bold ? "font-weight:600;" : "";
+    return `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:9px 18px;font-size:13px;${style}color:var(--ink-2);">${label}</td>
+      ${vals.map((v,i) => {
+        const col = colorFn ? colorFn(v) : (bold ? (v>=0?"var(--green)":"var(--red)") : "var(--ink)");
+        const bg = i === CUR_M ? "background:var(--month-hl);" : "";
+        return `<td style="padding:9px 8px;font-size:13px;text-align:right;${style}color:${col};${bg}">${v !== 0 ? fmtDKK(v) : ""}</td>`;
+      }).join("")}
+    </tr>`;
+  };
+
+  const dividerRow = () =>
+    `<tr><td colspan="13" style="padding:0;height:2px;background:var(--border2);"></td></tr>`;
+
+  // Calculate monthly totals
+  const monthKeys = Array.from({length:12}, (_,i) => `${DATA_YEAR}-${String(i+1).padStart(2,"0")}`);
+
+  // Income per month
+  const incomeVals = monthKeys.map(k =>
+    incomeEntries.reduce((s, e) => s + (getMonthVal(e, k) || 0), 0)
+  );
+
+  // Individual income rows
+  let incomeRows = "";
+  incomeEntries.forEach(e => {
+    if (!e.name) return;
+    const vals = monthKeys.map(k => getMonthVal(e, k) || 0);
+    if (vals.every(v => v === 0)) return;
+    incomeRows += dataRow(e.name, vals, false, v => v > 0 ? "var(--green)" : "var(--ink-3)");
+  });
+
+  // Total income row
+  incomeRows += dividerRow();
+  incomeRows += dataRow("Samlede Indtægter", incomeVals, true, v => "var(--green)");
+
+  // Expenses per category per month
+  const categories = [...new Set(expenseEntries.map(e => e.category))];
+  let expenseRows = "";
+  let expenseVals = Array(12).fill(0);
+
+  categories.forEach(cat => {
+    const catEntries = expenseEntries.filter(e => e.category === cat);
+    const catVals = monthKeys.map(k =>
+      catEntries.reduce((s, e) => s + Math.abs(getMonthVal(e, k) || 0), 0)
+    );
+    if (catVals.every(v => v === 0)) return;
+    catVals.forEach((v,i) => expenseVals[i] += v);
+    expenseRows += dataRow(cat, catVals, false, () => "var(--ink)");
+  });
+
+  expenseRows += dividerRow();
+  expenseRows += dataRow("Samlede Udgifter", expenseVals, true, v => "var(--red)");
+
+  // Result per month
+  dividerRow();
+  const resultVals = incomeVals.map((v, i) => v - expenseVals[i]);
+  const resultRow = `<tr style="border-bottom:1px solid var(--border2);">
+    <td style="padding:11px 18px;font-size:14px;font-weight:700;color:var(--ink);">Månedligt resultat</td>
+    ${resultVals.map((v,i) => {
+      const col = v >= 0 ? "var(--green)" : "var(--red)";
+      const bg = i === CUR_M ? "background:var(--month-hl);" : "background:var(--surface);";
+      return `<td style="padding:11px 8px;font-size:14px;font-weight:700;text-align:right;color:${col};${bg}">${fmtDKK(v)}</td>`;
+    }).join("")}
+  </tr>`;
+
+  rows = sectionHeader("INDTÆGTER", "var(--green-d)") + incomeRows +
+         sectionHeader("UDGIFTER", "var(--red)") + expenseRows +
+         sectionHeader("RESULTAT", "var(--ink-2)") + resultRow;
+
+  tbody.innerHTML = rows;
+}
+
+let saveTimer;
+function showSave(msg, cls) {
+ const el = document.getElementById("saveIndicator");
+ el.textContent = msg;
+ el.className = "save-indicator show " + cls;
+ clearTimeout(saveTimer);
+ saveTimer = setTimeout(() => el.classList.remove("show"), 2000);
+}
+</script>
+</body>
+</html>

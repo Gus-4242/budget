@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest-rejse.json">
+<meta name="theme-color" content="#0d9488">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Rejse">
+<link rel="apple-touch-icon" href="rejse-apple-touch-icon.png">
+<link rel="stylesheet" href="app-core.css?v=27">
+<script src="app-core.js?v=27" defer></script>
+<title>Familiebudget · Rejse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+/* Kun rejse-specifik stil. Sidebar, topbar, kort, knapper, farver
+   og mørkt tema ligger nu i app-core.css. */
+
+/* Rejsesiden er mobil-først og har sin egen topbar-/indholdsafstand
+   pga. sikkerhedszonerne på iPhone */
+.topbar { padding-top:env(safe-area-inset-top); }
+.content { padding:20px 28px calc(90px + env(safe-area-inset-bottom)); max-width:1000px; width:100%; }
+
+/* Trip selector */
+.trip-selector { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; align-items:center; }
+.trip-chip { padding:9px 18px; border-radius:24px; font-size:14px; font-weight:500; cursor:pointer; border:1.5px solid var(--border2); background:var(--white); color:var(--ink-2); transition:all 0.15s; display:flex; align-items:center; gap:8px; }
+.trip-chip.active { background:var(--teal); border-color:var(--teal); color:#fff; }
+.trip-chip-add { border-style:dashed; color:var(--ink-3); }
+.trip-chip-add:hover { border-color:var(--teal); color:var(--teal); }
+
+/* Summary hero */
+.trip-hero { background:linear-gradient(135deg, var(--teal), #0891b2); border-radius:20px; padding:24px; color:#fff; margin-bottom:20px; position:relative; overflow:hidden; }
+.trip-hero::after { content:'✈'; position:absolute; right:-10px; top:-10px; font-size:120px; opacity:0.08; transform:rotate(-20deg); }
+.hero-label { font-size:12px; opacity:0.85; letter-spacing:0.4px; }
+.hero-total { font-size:38px; font-family:'DM Serif Display',serif; font-weight:300; margin:4px 0 2px; letter-spacing:-1px; }
+.hero-sub { font-size:13px; opacity:0.85; }
+.hero-stats { display:flex; gap:24px; margin-top:16px; flex-wrap:wrap; }
+.hero-stat-val { font-size:18px; font-weight:500; }
+.hero-stat-lbl { font-size:11px; opacity:0.8; }
+.hero-break { margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.22); }
+.hero-break-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.hero-break-lbl { font-size:13.5px; opacity:0.92; }
+.hero-break-val { font-size:15px; font-weight:600; }
+.hero-rates { margin:2px 0 4px; padding-left:2px; }
+.hero-rate-line { display:flex; justify-content:space-between; font-size:12px; opacity:0.8; padding:2px 0; }
+
+/* Category summary */
+.cat-summary { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px,1fr)); gap:10px; margin-bottom:24px; }
+.cat-pill { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:12px 14px; }
+.cat-pill-top { display:flex; align-items:center; gap:7px; margin-bottom:5px; }
+.cat-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.cat-pill-name { font-size:12px; color:var(--ink-2); font-weight:500; }
+.cat-pill-amt { font-size:17px; font-weight:500; font-family:'DM Serif Display',serif; }
+.cat-pill-pct { font-size:11px; color:var(--ink-3); }
+.cat-pill { cursor:pointer; transition:border-color 0.15s, box-shadow 0.15s; }
+.cat-pill:active { transform:scale(0.96); }
+.cat-pill { -webkit-tap-highlight-color:transparent; }
+.cat-pill.on { border-color:var(--teal); box-shadow:0 0 0 1.5px var(--teal); background:var(--teal-l); }
+
+/* Section title */
+.section-head { display:flex; align-items:center; justify-content:space-between; margin:24px 0 12px; }
+.section-title { font-size:15px; font-weight:500; }
+.section-link { font-size:13px; color:var(--teal); font-weight:500; cursor:pointer; background:none; border:none; }
+.cur-filter { display:flex; gap:6px; }
+.cur-filter button { padding:5px 12px; border-radius:16px; border:1.5px solid var(--border2); background:var(--white); font-size:12.5px; font-weight:600; color:var(--ink-3); cursor:pointer; font-family:'DM Sans',sans-serif; transition:background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.12s ease; -webkit-tap-highlight-color:transparent; }
+.cur-filter button:active { transform:scale(0.94); }
+.cur-filter button.on { border-color:var(--teal); background:var(--teal); color:#fff; }
+.cur-filter-sum { background:var(--teal-l); border:1px solid rgba(13,148,136,0.2); border-radius:12px; padding:10px 14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+.cur-filter-sum .lbl { font-size:12px; color:var(--teal); font-weight:500; }
+.cur-filter-sum .val { font-size:16px; font-weight:700; color:var(--teal); }
+
+/* Funding (kontanter/Revolut) card */
+.funding-card { background:var(--white); border:1px solid var(--border); border-radius:16px; padding:16px 18px; margin-bottom:8px; }
+.funding-top { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:12px; }
+.funding-total-label { font-size:11px; color:var(--ink-3); letter-spacing:0.3px; text-transform:uppercase; }
+.funding-total-val { font-size:24px; font-family:'DM Serif Display',serif; font-weight:300; margin-top:2px; }
+.funding-split { display:flex; gap:16px; font-size:12.5px; color:var(--ink-2); margin-top:4px; }
+.funding-split b { color:var(--ink); }
+.funding-diff-box { text-align:right; }
+.funding-diff-label { font-size:11px; color:var(--ink-3); }
+.funding-diff-val { font-size:19px; font-weight:600; margin-top:1px; }
+.funding-row { display:flex; align-items:center; gap:13px; padding:10px 2px; border-top:1px solid var(--line); }
+.funding-row:first-child { border-top:none; }
+.funding-icon { width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+.funding-mid { flex:1; min-width:0; }
+.funding-method { font-size:14px; font-weight:500; }
+.funding-note { font-size:12px; color:var(--ink-3); margin-top:1px; }
+.funding-amt { text-align:right; flex-shrink:0; }
+.funding-amt-dkk { font-size:14.5px; font-weight:600; }
+.funding-amt-local { font-size:11px; color:var(--ink-3); }
+.method-picker { display:flex; gap:8px; }
+.method-choice { flex:1; padding:14px 10px; border-radius:14px; border:1.5px solid var(--border2); background:var(--white); font-size:14px; cursor:pointer; text-align:center; color:var(--ink-2); font-family:'DM Sans',sans-serif; }
+.method-choice.on { border-color:var(--teal); background:var(--teal-l); color:var(--teal); font-weight:600; }
+.method-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.method-grid .method-choice { flex:none; }
+.method-grid .method-choice.full { grid-column:1 / -1; }
+.rate-row { display:flex; align-items:center; gap:6px; margin-top:6px; font-size:12px; color:var(--ink-3); flex-wrap:wrap; }
+.rate-row input { width:74px; border:1.5px solid var(--border2); border-radius:8px; padding:4px 8px; font-size:12.5px; font-family:'DM Sans',sans-serif; color:var(--ink); }
+.rate-row input:focus { border-color:var(--teal); outline:none; }
+
+/* Expense list grouped by date */
+.date-group { margin-bottom:18px; }
+.date-header { font-size:12px; font-weight:600; color:var(--ink-3); letter-spacing:0.3px; text-transform:uppercase; padding:4px 2px 8px; display:flex; justify-content:space-between; }
+.exp-row { display:flex; align-items:center; gap:12px; background:var(--white); border:1px solid var(--border); border-radius:14px; padding:13px 15px; margin-bottom:8px; cursor:pointer; transition:transform 0.1s, box-shadow 0.1s; }
+.exp-row:active { transform:scale(0.99); }
+.exp-row:hover { box-shadow:0 2px 10px rgba(0,0,0,0.05); }
+.exp-cat-icon { width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+.exp-mid { flex:1; min-width:0; }
+.exp-note { font-size:14px; color:var(--ink); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.exp-cat-label { font-size:12px; color:var(--ink-3); margin-top:1px; }
+.exp-amt-wrap { text-align:right; flex-shrink:0; }
+.exp-amt-dkk { font-size:15px; font-weight:600; color:var(--ink); }
+.exp-amt-local { font-size:11px; color:var(--ink-3); margin-top:1px; }
+.exp-row.reconciled { background:#eafaf1; border-color:rgba(26,158,110,0.35); }
+.exp-check { width:26px; height:26px; border-radius:50%; border:2px solid var(--border2); flex-shrink:0; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.15s; background:var(--white); margin-left:4px; }
+.exp-check:active { transform:scale(0.85); }
+.exp-check.on { background:var(--green); border-color:var(--green); }
+.exp-check svg { width:14px; height:14px; stroke:#fff; stroke-width:3.5; opacity:0; transition:opacity 0.12s; }
+.exp-check.on svg { opacity:1; }
+
+/* Empty state */
+.empty-state { text-align:center; padding:50px 20px; color:var(--ink-3); }
+.empty-state svg { width:56px; height:56px; margin-bottom:14px; opacity:0.35; }
+
+/* Floating add button (mobile-first) */
+.fab { position:fixed; right:24px; bottom:calc(24px + env(safe-area-inset-bottom)); width:58px; height:58px; border-radius:50%; background:var(--teal); color:#fff; border:none; box-shadow:0 6px 20px rgba(13,148,136,0.4); cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:60; transition:transform 0.15s; }
+.fab:active { transform:scale(0.92); }
+
+/* Bottom-sheet modal (iPhone style) */
+.sheet-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:200; align-items:flex-end; justify-content:center; }
+.sheet-overlay.open { display:flex; }
+.sheet { background:var(--white); border-radius:24px 24px 0 0; padding:8px 20px calc(24px + env(safe-area-inset-bottom)); width:100%; max-width:520px; max-height:92vh; overflow-y:auto; animation:sheetUp 0.28s cubic-bezier(0.2,0.8,0.2,1); }
+@keyframes sheetUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+@keyframes pulse { 0%{background-position:100% 50%} 100%{background-position:0% 50%} }
+@keyframes fadeInList { from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+.list-fade { animation:fadeInList 0.22s ease; }
+.cur-filter-sum { animation:fadeInList 0.22s ease; }
+.sheet-grab { width:38px; height:4px; background:var(--border2); border-radius:3px; margin:8px auto 16px; }
+.sheet-title { font-family:'DM Serif Display',serif; font-size:22px; margin-bottom:18px; }
+
+/* Desktop: center the sheet */
+@media (min-width:769px) {
+  .sheet-overlay { align-items:center; }
+  .sheet { border-radius:24px; max-height:88vh; }
+}
+
+.field { margin-bottom:15px; }
+.field label { display:block; font-size:12px; font-weight:500; color:var(--ink-2); margin-bottom:6px; }
+.field input, .field select, .field textarea { width:100%; min-height:48px; border:1.5px solid var(--border2); border-radius:12px; padding:12px 14px; font-family:'DM Sans',sans-serif; font-size:16px; color:var(--ink); background:var(--white); outline:none; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color:var(--teal); box-shadow:0 0 0 3px rgba(13,148,136,0.12); }
+.field textarea { resize:vertical; min-height:70px; }
+.field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+/* Amount input with currency toggle */
+.amount-wrap { display:flex; gap:8px; }
+.amount-wrap input { flex:1; font-size:20px; font-weight:500; min-width:0; }
+.cur-toggle { display:flex; border:1.5px solid var(--border2); border-radius:12px; overflow:hidden; flex-shrink:0; }
+.cur-btn { padding:0 11px; background:var(--white); border:none; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; color:var(--ink-3); cursor:pointer; min-width:44px; }
+.cur-btn.active { background:var(--teal); color:#fff; }
+
+/* Category chips in modal */
+.cat-picker { display:flex; flex-wrap:wrap; gap:8px; }
+.cat-choice { padding:9px 14px; border-radius:20px; border:1.5px solid var(--border2); background:var(--white); font-size:13.5px; cursor:pointer; display:flex; align-items:center; gap:6px; font-family:'DM Sans',sans-serif; color:var(--ink-2); }
+.cat-choice.active { border-color:var(--teal); background:var(--teal-l); color:var(--teal); font-weight:500; }
+.cat-choice-add { border-style:dashed; color:var(--ink-3); }
+
+.btn-primary { width:100%; min-height:50px; background:var(--teal); color:#fff; border:none; border-radius:14px; font-family:'DM Sans',sans-serif; font-size:15px; font-weight:500; cursor:pointer; margin-top:10px; }
+.btn-primary:active { transform:scale(0.99); }
+.btn-danger { width:100%; min-height:48px; background:var(--red-l); color:var(--red); border:1.5px solid rgba(232,64,64,0.25); border-radius:14px; font-family:'DM Sans',sans-serif; font-size:14px; cursor:pointer; margin-top:8px; }
+.btn-ghost { width:100%; min-height:48px; background:none; color:var(--ink-2); border:1.5px solid var(--border2); border-radius:14px; font-family:'DM Sans',sans-serif; font-size:14px; cursor:pointer; margin-top:8px; }
+
+@media (max-width:768px) {
+  :root{--nav-w:0px;}
+  .sidebar{transform:translateX(-240px);width:240px;}
+  .sidebar.open{transform:translateX(0);}
+  .sidebar-overlay.show{display:block;}
+  .main{margin-left:0;}
+  .hamburger{display:flex;}
+  .content{padding:16px 14px calc(90px + env(safe-area-inset-bottom));}
+  .topbar{padding:0 16px;}
+  .hero-total{font-size:32px;}
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar" data-active="travel"></aside>
+
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="hamburger" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title">Rejse</span>
+    </div>
+    <button onclick="exportTrip()" title="Download som CSV" style="display:flex;align-items:center;gap:6px;background:var(--white);color:var(--ink-2);border:1.5px solid var(--border2);border-radius:10px;padding:8px 14px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Eksportér
+    </button>
+  </header>
+
+  <div class="content">
+    <!-- Trip selector -->
+    <div class="trip-selector" id="trip-selector"></div>
+
+    <!-- Hero total -->
+    <div id="hero-area"></div>
+
+    <!-- Kontanter & Revolut (optræk) -->
+    <div class="section-head">
+      <span class="section-title">Kontanter &amp; Revolut</span>
+      <button class="section-link" onclick="openFundingSheet()">+ Hævning</button>
+    </div>
+    <div id="funding-area"></div>
+
+    <!-- Category summary -->
+    <div class="section-head" style="margin-top:24px;">
+      <span class="section-title">Fordelt på kategori</span>
+    </div>
+    <div class="cat-summary" id="cat-summary"></div>
+
+    <!-- Udgifter -->
+    <div class="section-head">
+      <span class="section-title">Udgifter</span>
+      <div class="cur-filter" id="cur-filter"></div>
+    </div>
+    <div id="expense-list"></div>
+  </div>
+</div>
+
+<!-- Floating add button -->
+<button class="fab" id="fab" onclick="openExpenseSheet()" title="Tilføj omkostning" style="display:none;">
+  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<!-- Expense bottom-sheet -->
+<div class="sheet-overlay" id="expense-sheet">
+  <div class="sheet">
+    <div class="sheet-grab"></div>
+    <div class="sheet-title" id="expense-sheet-title">Ny omkostning</div>
+    <input type="hidden" id="e-edit-id">
+
+    <div class="field">
+      <label>Beløb</label>
+      <div class="amount-wrap">
+        <input type="number" id="e-amount" inputmode="decimal" step="0.01" placeholder="0">
+        <div class="cur-toggle">
+          <button class="cur-btn active" id="cur-local" onclick="setCurrency('local')">TRY</button>
+          <button class="cur-btn" id="cur-eur" onclick="setCurrency('eur')">EUR</button>
+          <button class="cur-btn" id="cur-dkk" onclick="setCurrency('dkk')">DKK</button>
+        </div>
+      </div>
+      <div class="rate-row" id="e-rate-row" style="display:none;">
+        <span id="e-conversion-text"></span>
+        <span style="display:flex;align-items:center;gap:4px;">kurs <input type="number" id="e-rate" step="0.0001" oninput="onRateInput('e')"></span>
+      </div>
+      <div id="conversion-hint" style="font-size:12px;color:var(--ink-3);margin-top:6px;"></div>
+    </div>
+
+    <div class="field">
+      <label>Dato</label>
+      <input type="date" id="e-date">
+    </div>
+
+    <div class="field">
+      <label>Kategori</label>
+      <div class="cat-picker" id="cat-picker"></div>
+    </div>
+
+    <div class="field">
+      <label>Betalt med</label>
+      <div class="method-grid" id="e-method-grid"></div>
+    </div>
+
+    <div class="field">
+      <label>Note</label>
+      <input type="text" id="e-note" placeholder="fx Frokost ved havnen">
+    </div>
+
+    <button class="btn-primary" onclick="saveExpense()">Gem omkostning</button>
+    <button class="btn-danger" id="e-delete-btn" onclick="deleteExpense()" style="display:none;">Slet omkostning</button>
+    <button class="btn-ghost" onclick="closeExpenseSheet()">Annuller</button>
+  </div>
+</div>
+
+<!-- New trip sheet -->
+<div class="sheet-overlay" id="trip-sheet">
+  <div class="sheet">
+    <div class="sheet-grab"></div>
+    <div class="sheet-title">Ny rejse</div>
+    <div class="field">
+      <label>Rejsemål og år</label>
+      <input type="text" id="t-name" placeholder="fx Tyrkiet 2026">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Lokal valuta (kode)</label>
+        <input type="text" id="t-currency" placeholder="TRY" maxlength="4" style="text-transform:uppercase;">
+      </div>
+      <div class="field">
+        <label>Kurs: 1 lokal = ? DKK</label>
+        <input type="number" id="t-rate" inputmode="decimal" step="0.0001" placeholder="0.14">
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--ink-3);margin-bottom:8px;">Eksempel: 1 tyrkisk lira ≈ 0,14 DKK (juni 2026). Kursen kan altid rettes senere.</div>
+    <button class="btn-primary" onclick="saveTrip()">Opret rejse</button>
+    <button class="btn-ghost" onclick="closeTripSheet()">Annuller</button>
+  </div>
+</div>
+
+<!-- Funding (kontanter/Revolut) bottom-sheet -->
+<div class="sheet-overlay" id="funding-sheet">
+  <div class="sheet">
+    <div class="sheet-grab"></div>
+    <div class="sheet-title" id="funding-sheet-title">Hævning / overførsel</div>
+    <input type="hidden" id="f-edit-id">
+
+    <div class="field">
+      <label>Beløb</label>
+      <div class="amount-wrap">
+        <input type="number" id="f-amount" inputmode="decimal" step="0.01" placeholder="0">
+        <div class="cur-toggle">
+          <button class="cur-btn active" id="fcur-local" onclick="setFundingCurrency('local')">TRY</button>
+          <button class="cur-btn" id="fcur-eur" onclick="setFundingCurrency('eur')">EUR</button>
+          <button class="cur-btn" id="fcur-dkk" onclick="setFundingCurrency('dkk')">DKK</button>
+        </div>
+      </div>
+      <div class="rate-row" id="f-rate-row" style="display:none;">
+        <span id="f-conversion-text"></span>
+        <span style="display:flex;align-items:center;gap:4px;">kurs <input type="number" id="f-rate" step="0.0001" oninput="onRateInput('f')"></span>
+      </div>
+      <div id="funding-conversion-hint" style="font-size:12px;color:var(--ink-3);margin-top:6px;"></div>
+    </div>
+
+    <div class="field">
+      <label>Metode</label>
+      <div class="method-picker">
+        <div class="method-choice on" id="method-cash" onclick="pickMethod('cash')">💵 Kontanter</div>
+        <div class="method-choice" id="method-revolut" onclick="pickMethod('revolut')">🏦 Revolut</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Dato</label>
+      <input type="date" id="f-date">
+    </div>
+
+    <div class="field">
+      <label>Note (valgfri)</label>
+      <input type="text" id="f-note" placeholder="fx Hævet i lufthavnen">
+    </div>
+
+    <button class="btn-primary" onclick="saveFunding()">Gem</button>
+    <button class="btn-danger" id="f-delete-btn" onclick="deleteFunding()" style="display:none;">Slet</button>
+    <button class="btn-ghost" onclick="closeFundingSheet()">Annuller</button>
+  </div>
+</div>
+
+<script type="module">
+/* Firebase initialiseres nu ét sted for HELE portalen – se db.js.
+   Rejsesiden havde allerede offline-cache (derfor virkede den bedre på
+   mobil end de øvrige sider), men manglede
+   experimentalAutoDetectLongPolling. Den ligger nu i db.js. */
+import { db, requireAuth } from "./db.js?v=27";
+import { collection, getDocs, doc, setDoc, addDoc, deleteDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const esc    = window.AppCore.esc;
+const toast  = window.AppCore.toast;
+const fmtDKK = window.AppCore.fmtDKK;
+
+let trips = [];
+let expenses = [];        // for active trip
+let funding = [];          // optræk/overførsler (kontanter + Revolut) for active trip
+let fundingCurrency = "local";
+let fundingMethod = "cash";
+let expenseMethod = "cash_try";
+let cashFilter = null; // null = vis alle; "TRY" eller "EUR" = filtrér på kontant-udgifter i den valuta
+let catFilter = null;  // null = vis alle; ellers kategori-navn der filtreres på
+let animateNextList = false; // sæt true lige før et filter-skift, så listen fader blødt ind
+
+// Betalingsmetoder for UDGIFTER. Kontanter har fast valuta indbygget; kort/andet beholder valuta-toggle.
+// fixedCur = null betyder "brug valuta-toggle"; ellers er valutaen låst.
+const EXPENSE_METHODS = [
+  { id:"cash_try", icon:"💵", label:"Kontanter TRY", fixedCur:"TRY",   cashPool:true  },
+  { id:"cash_eur", icon:"💵", label:"Kontanter EUR", fixedCur:"EUR",   cashPool:true  },
+  { id:"revolut",  icon:"🏦", label:"Revolut",       fixedCur:null,    cashPool:false },
+  { id:"card_dk",  icon:"💳", label:"Dansk kort",    fixedCur:null,    cashPool:false },
+  { id:"other",    icon:"🧾", label:"Anden",         fixedCur:null,    cashPool:false },
+];
+function methodById(id) { return EXPENSE_METHODS.find(m => m.id === id) || EXPENSE_METHODS[0]; }
+function isCashMethod(id) { return id === "cash_try" || id === "cash_eur" || id === "cash" /* gammel data */; }
+function methodIcon(id) {
+  const m = EXPENSE_METHODS.find(x => x.id === id);
+  if (m) return m.icon;
+  if (id === "cash") return "💵"; // bagudkompatibel
+  return "💳";
+}
+let activeTrip = null;
+let isAdmin = false;
+let inputCurrency = "local"; // "local" or "dkk"
+let selectedCat = null;
+
+// DKK er fastkurs-bundet til EUR (ERM II) – ændrer sig næsten ikke, så én fælles kurs er fint
+const EUR_RATE = 7.48; // 1 EUR = 7,48 DKK (juni 2026) – bruges som DEFAULT, kan overskrives pr. registrering
+const RATE_CATEGORY = "Fly + Hotel (forudbetalt)"; // særlig kategori: forudbetalte rejse-rater, vises adskilt i hero (ikke dagligt forbrug)
+function isRateCat(cat) { return cat === RATE_CATEGORY; }
+let lastLocalRate = null; // husker sidst brugte kurs for rejsens lokale valuta (fx TRY), så næste registrering foreslår samme
+let lastEurRate   = EUR_RATE;
+
+// Standard-kategorier (kan udvides pr. rejse)
+const DEFAULT_CATS = [
+  { name:"Mad & Drikke", icon:"🍽️", color:"#e84040" },
+  { name:"Transport",    icon:"🚕", color:"#2563eb" },
+  { name:"Hotel",        icon:"🏨", color:"#7c3aed" },
+  { name:"Oplevelser",   icon:"🎟️", color:"#d97706" },
+  { name:"Shopping",     icon:"🛍️", color:"#db2777" },
+  { name:"Fly + Hotel (forudbetalt)", icon:"✈️", color:"#0891b2" },
+  { name:"Andet",        icon:"💶", color:"#0d9488" },
+];
+
+requireAuth(u => {
+  isAdmin = u.isAdmin;
+  loadTrips();
+});
+
+// window.logout kommer nu fra db.js
+
+async function loadTrips() {
+  // Optimistisk: vis sidst valgte rejse med det samme fra cache, mens Firestore henter friskt
+  const cachedId   = localStorage.getItem("rejse_activeTripId");
+  const cachedName = localStorage.getItem("rejse_activeTripName");
+  if (cachedId && cachedName) {
+    renderSkeleton(cachedName);
+  } else {
+    renderSkeleton(null);
+  }
+
+  try {
+    const snap = await getDocs(collection(db, "trips"));
+    trips = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!trips.length) await seedTurkey();
+  } catch(e) {
+    toast("Kunne ikke hente rejser – tjek forbindelsen", "error");
+    trips = [];
+  }
+  // Genvælg tidligere aktiv rejse hvis den stadig findes, ellers seneste
+  activeTrip = (cachedId && trips.find(t => t.id === cachedId)) || trips[trips.length - 1] || null;
+  if (activeTrip) {
+    localStorage.setItem("rejse_activeTripId", activeTrip.id);
+    localStorage.setItem("rejse_activeTripName", activeTrip.name);
+  }
+
+  renderTripSelector();
+  if (activeTrip) loadExpenses();
+  else renderEmpty();
+}
+
+function renderSkeleton(tripName) {
+  const pulse = 'style="background:linear-gradient(90deg,#eef1ea 25%,#e4e8de 37%,#eef1ea 63%);background-size:400% 100%;animation:pulse 1.4s ease infinite;border-radius:10px;"';
+  document.getElementById("hero-area").innerHTML = `
+    <div class="trip-hero" style="background:linear-gradient(135deg,#c9d4bd,#b7c4a8);">
+      <div class="hero-label">${tripName ? "SAMLEDE OMKOSTNINGER · " + esc(tripName) : "INDLÆSER REJSE..."}</div>
+      <div ${pulse} style="height:38px;width:160px;margin-top:8px;"></div>
+    </div>`;
+  document.getElementById("cat-summary").innerHTML = "";
+  document.getElementById("expense-list").innerHTML = Array.from({length:3}).map(() =>
+    `<div class="exp-row" style="pointer-events:none;">
+      <div ${pulse} style="width:38px;height:38px;border-radius:11px;"></div>
+      <div class="exp-mid"><div ${pulse} style="height:14px;width:60%;margin-bottom:6px;"></div><div ${pulse} style="height:11px;width:35%;"></div></div>
+    </div>`
+  ).join("");
+}
+
+async function seedTurkey() {
+  const t = { name:"Tyrkiet 2026", currency:"TRY", rate:0.1395, cats: DEFAULT_CATS, created: Date.now() };
+  try {
+    const ref = await addDoc(collection(db, "trips"), t);
+    trips.push({ id: ref.id, ...t });
+  } catch(e) {
+    trips.push({ id:"local_"+Date.now(), ...t });
+  }
+}
+
+async function loadExpenses() {
+  if (!activeTrip) return;
+  ensureRateCategory(); // sørg for at rate-kategorien findes på denne rejse
+  try {
+    const [expSnap, fundSnap] = await Promise.all([
+      getDocs(collection(db, "trips", activeTrip.id, "expenses")),
+      getDocs(collection(db, "trips", activeTrip.id, "funding"))
+    ]);
+    expenses = expSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    funding  = fundSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) {
+    // Subcollections kan være tomme (ny rejse uden data endnu)
+    expenses = []; funding = [];
+  }
+  renderAll();
+}
+
+function renderTripSelector() {
+  const el = document.getElementById("trip-selector");
+  let html = trips.map(t =>
+    `<div class="trip-chip ${activeTrip && t.id===activeTrip.id ? 'active':''}" onclick="selectTrip('${t.id}')">
+      <span>✈️</span> ${esc(t.name)}
+    </div>`
+  ).join("");
+  html += `<div class="trip-chip trip-chip-add" onclick="openTripSheet()">+ Ny rejse</div>`;
+  el.innerHTML = html;
+}
+
+window.selectTrip = function(id) {
+  activeTrip = trips.find(t => t.id === id);
+  cashFilter = null; // nulstil valuta-filter ved skift af rejse
+  catFilter = null;  // nulstil kategori-filter ved skift af rejse
+  if (activeTrip) {
+    localStorage.setItem("rejse_activeTripId", activeTrip.id);
+    localStorage.setItem("rejse_activeTripName", activeTrip.name);
+  }
+  renderTripSelector();
+  loadExpenses();
+};
+
+function getCats() {
+  return (activeTrip && activeTrip.cats && activeTrip.cats.length) ? activeTrip.cats : DEFAULT_CATS;
+}
+function catByName(name) {
+  return getCats().find(c => c.name === name) || { name: name||"Andet", icon:"💶", color:"#0d9488" };
+}
+
+// Sikrer at rate-kategorien ("Fly + Hotel (forudbetalt)") findes på den aktive rejse.
+// Tilføjer den til eksisterende rejser der blev oprettet før kategorien fandtes.
+async function ensureRateCategory() {
+  if (!activeTrip) return;
+  const cats = getCats();
+  if (cats.some(c => c.name === RATE_CATEGORY)) return; // findes allerede
+  const updated = cats.concat([{ name: RATE_CATEGORY, icon: "✈️", color: "#0891b2" }]);
+  activeTrip.cats = updated;
+  try {
+    await setDoc(doc(db, "trips", activeTrip.id), { cats: updated }, { merge: true });
+  } catch(e) { /* offline – kategorien er stadig tilgængelig lokalt i denne session */ }
+}
+
+// Beløb altid gemt i DKK; local vises via rate
+function toDKK(amount) {
+  if (inputCurrency === "dkk") return amount;
+  return amount * (activeTrip.rate || 1);
+}
+
+function renderAll() {
+  renderHero();
+  renderFunding();
+  renderCatSummary();
+  renderCurFilter();
+  renderExpenses();
+  document.getElementById("fab").style.display = activeTrip ? "flex" : "none";
+}
+
+function renderHero() {
+  // Del udgifter i dagligt forbrug vs. forudbetalte rejse-rater (Hotel + Fly)
+  const rateExpenses = expenses.filter(e => isRateCat(e.category));
+  const spendExpenses = expenses.filter(e => !isRateCat(e.category));
+
+  const spendDKK = spendExpenses.reduce((s,e) => s + (e.dkk||0), 0);
+  const rateDKK  = rateExpenses.reduce((s,e) => s + (e.dkk||0), 0);
+  const totalDKK = spendDKK + rateDKK;
+
+  const days = new Set(spendExpenses.map(e => e.date)).size;
+  const perDay = days ? spendDKK / days : 0;
+
+  // Rate-linjer (sorteret efter dato, ældste = Rate 1)
+  const ratesSorted = [...rateExpenses].sort((a,b) =>
+    (a.date||"").localeCompare(b.date||"") || (a.created||0)-(b.created||0));
+  const rateLines = ratesSorted.map((e,i) =>
+    `<div class="hero-rate-line"><span>Rate ${i+1}</span><span>${fmtDKK(e.dkk||0)}</span></div>`
+  ).join("");
+
+  document.getElementById("hero-area").innerHTML = `
+    <div class="trip-hero">
+      <div class="hero-label">SAMLEDE OMKOSTNINGER · ${esc(activeTrip.name)}</div>
+      <div class="hero-total">${fmtDKK(totalDKK)}</div>
+      <div class="hero-sub">${expenses.length} registreringer${activeTrip.currency ? ` · 1 ${esc(activeTrip.currency)} = ${(activeTrip.rate||0).toLocaleString("da-DK",{maximumFractionDigits:4})} DKK` : ""}</div>
+
+      <div class="hero-break">
+        <div class="hero-break-row">
+          <span class="hero-break-lbl">Forbrug på stedet</span>
+          <span class="hero-break-val">${fmtDKK(spendDKK)}</span>
+        </div>
+        ${rateDKK > 0 ? `
+        <div class="hero-break-row">
+          <span class="hero-break-lbl">✈️ Fly + Hotel</span>
+          <span class="hero-break-val">${fmtDKK(rateDKK)}</span>
+        </div>
+        <div class="hero-rates">${rateLines}</div>` : ""}
+      </div>
+
+      <div class="hero-stats">
+        <div><div class="hero-stat-val">${fmtDKK(perDay)}</div><div class="hero-stat-lbl">pr. aktiv dag</div></div>
+        <div><div class="hero-stat-val">${days}</div><div class="hero-stat-lbl">dage med forbrug</div></div>
+      </div>
+    </div>`;
+}
+
+function renderCatSummary() {
+  const totals = {};
+  expenses.forEach(e => {
+    if (isRateCat(e.category)) return; // Hotel+Fly vises kun i hero, ikke her
+    totals[e.category] = (totals[e.category]||0) + (e.dkk||0);
+  });
+  const grand = Object.values(totals).reduce((a,b)=>a+b,0) || 1;
+  const sorted = Object.entries(totals).sort((a,b) => b[1]-a[1]);
+  window._catOrder = sorted.map(([name]) => name); // gem rækkefølge så onclick kan slå op via indeks
+  document.getElementById("cat-summary").innerHTML = sorted.map(([name, amt], i) => {
+    const c = catByName(name);
+    const on = catFilter === name ? " on" : "";
+    return `<div class="cat-pill${on}" onclick="setCatFilterByIndex(${i})">
+      <div class="cat-pill-top"><span class="cat-dot" style="background:${c.color}"></span><span class="cat-pill-name">${c.icon} ${esc(name)}</span></div>
+      <div class="cat-pill-amt">${fmtDKK(amt)}</div>
+      <div class="cat-pill-pct">${Math.round(amt/grand*100)}% af total</div>
+    </div>`;
+  }).join("");
+}
+
+window.setCatFilterByIndex = function(i) {
+  const name = (window._catOrder || [])[i];
+  if (name == null) return;
+  setCatFilter(name);
+};
+
+window.setCatFilter = function(name) {
+  catFilter = (catFilter === name) ? null : name; // tryk igen = slå fra
+  animateNextList = true;
+  renderCatSummary();
+  renderExpenses();
+};
+
+function renderFunding() {
+  const el = document.getElementById("funding-area");
+  const totalFunding = funding.reduce((s,f) => s + (f.dkk||0), 0);
+
+  // Kun kontantforbrug (cash_try/cash_eur) tæller mod kontantpuljerne.
+  // Revolut/Dansk kort/Anden er ikke kontanter og trækker ikke fra en fysisk kasse.
+  const cashSpentDKK = expenses.filter(e => isCashMethod(e.method)).reduce((s,e)=>s+(e.dkk||0),0);
+  const revolutIn  = funding.filter(f=>f.method==="revolut").reduce((s,f)=>s+(f.dkk||0),0);
+  const revolutOut = expenses.filter(e=>e.method==="revolut").reduce((s,e)=>s+(e.dkk||0),0);
+
+  // "Rest beholdning" = hævede kontanter minus kontantforbrug (+ Revolut-rest).
+  // Kort/anden indgår IKKE, da de ikke har en beholdning man hæver til.
+  const cashInDKK = funding.filter(f=>f.method!=="revolut").reduce((s,f)=>s+(f.dkk||0),0);
+  const restBeholdning = (cashInDKK - cashSpentDKK) + (revolutIn - revolutOut);
+
+  // Find hvilke kontant-valutaer der faktisk er HÆVET (ikke gættet ud fra udgifter)
+  const cashCurrencies = new Set();
+  funding.forEach(f => { if (f.method !== "revolut") cashCurrencies.add(f.currency || activeTrip.currency); });
+  const priority = [activeTrip.currency, "EUR", "TRY", "DKK"];
+  const sortedCur = [...cashCurrencies].sort((a,b) => {
+    const ia = priority.indexOf(a), ib = priority.indexOf(b);
+    return (ia===-1?99:ia) - (ib===-1?99:ib);
+  });
+
+  function cashBox(cur) {
+    const inDKK    = funding.filter(f=>f.method!=="revolut" && (f.currency||activeTrip.currency)===cur).reduce((s,f)=>s+(f.dkk||0),0);
+    const inLocal  = funding.filter(f=>f.method!=="revolut" && (f.currency||activeTrip.currency)===cur).reduce((s,f)=>s+(f.localAmount||0),0);
+    // Forbrug betalt med KONTANTER i netop denne valuta.
+    // Matcher både ny metode (cash_try/cash_eur) OG gammel data ("cash" uden suffix) via valuta.
+    const spendMethod = cur === "EUR" ? "cash_eur" : "cash_try";
+    const isThisCash = e => isCashMethod(e.method) &&
+      (e.method === spendMethod || ((e.method === "cash" || !e.method) && (e.currency||activeTrip.currency) === cur));
+    const outDKK   = expenses.filter(isThisCash).reduce((s,e)=>s+(e.dkk||0),0);
+    const outLocal = expenses.filter(isThisCash).reduce((s,e)=>s+(e.localAmount||0),0);
+    const leftDKK   = inDKK - outDKK;
+    const leftLocal = inLocal - outLocal;
+    return `<div style="background:var(--surface);border-radius:12px;padding:11px 13px;">
+      <div style="font-size:12px;color:var(--ink-2);margin-bottom:3px;">💵 Kontanter (${esc(cur)})</div>
+      <div style="font-size:16px;font-weight:600;color:var(--ink);">${inLocal.toLocaleString("da-DK",{maximumFractionDigits:0})} ${esc(cur)} <span style="font-size:12px;font-weight:500;color:var(--ink-3);">/ ${fmtDKK(inDKK)}</span></div>
+      <div style="font-size:11px;color:var(--ink-3);margin-bottom:6px;">hævet i alt</div>
+      <div style="border-top:1px solid var(--border);padding-top:6px;">
+        <div style="font-size:11px;color:var(--ink-3);">Restbeholdning</div>
+        <div style="font-size:15px;font-weight:600;color:${leftLocal>=0?'var(--teal)':'var(--red)'};">${leftLocal.toLocaleString("da-DK",{maximumFractionDigits:0})} ${esc(cur)} <span style="font-size:12px;font-weight:500;color:var(--ink-3);">/ ${fmtDKK(leftDKK)}</span></div>
+      </div>
+    </div>`;
+  }
+
+  function revolutBox() {
+    const left = revolutIn - revolutOut;
+    return `<div style="background:var(--surface);border-radius:12px;padding:11px 13px;">
+      <div style="font-size:12px;color:var(--ink-2);margin-bottom:3px;">🏦 Revolut</div>
+      <div style="font-size:16px;font-weight:600;color:${left>=0?'var(--ink)':'var(--red)'}">${fmtDKK(left)}</div>
+      <div style="font-size:11px;color:var(--ink-3);margin-bottom:6px;">rest beholdning</div>
+      <div style="border-top:1px solid var(--border);padding-top:6px;font-size:11.5px;color:var(--ink-3);">
+        <div style="display:flex;justify-content:space-between;"><span>Konto</span><span style="color:var(--ink-2);font-weight:500;">${fmtDKK(revolutIn)}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-top:2px;"><span>Brugt</span><span style="color:var(--ink-2);font-weight:500;">${fmtDKK(revolutOut)}</span></div>
+      </div>
+    </div>`;
+  }
+
+  let boxes = sortedCur.map(cashBox).join("");
+  if (revolutIn > 0 || revolutOut > 0) boxes += revolutBox();
+
+  let html = `<div class="funding-card">
+    <div class="funding-top">
+      <div>
+        <div class="funding-total-label">Hævet i alt</div>
+        <div class="funding-total-val">${fmtDKK(totalFunding)}</div>
+      </div>
+      <div class="funding-diff-box">
+        <div class="funding-diff-label">${restBeholdning >= 0 ? "Rest beholdning" : "Brugt udover hævet"}</div>
+        <div class="funding-diff-val" style="color:${restBeholdning >= 0 ? 'var(--teal)' : 'var(--red)'}">${fmtDKK(Math.abs(restBeholdning))}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:2px;">
+      ${boxes}
+    </div>`;
+
+  if (!funding.length) {
+    html += `<div style="font-size:13px;color:var(--ink-3);text-align:center;padding:8px 0 2px;">Ingen hævninger registreret endnu</div>`;
+  } else {
+    const sorted = [...funding].sort((a,b) => (b.date||"").localeCompare(a.date||"") || (b.created||0)-(a.created||0));
+    html += sorted.map(f => {
+      const isCash = f.method !== "revolut";
+      const cur = f.currency || activeTrip.currency;
+      const localStr = (f.currency && f.currency !== "DKK" && f.localAmount)
+        ? `${f.localAmount.toLocaleString("da-DK",{maximumFractionDigits:2})} ${esc(f.currency)}` : "";
+      return `<div class="funding-row" onclick="editFunding('${f.id}')" style="cursor:pointer;">
+        <div class="funding-icon" style="background:${isCash?'#d9942022':'#4f46e522'}">${isCash?'💵':'🏦'}</div>
+        <div class="funding-mid">
+          <div class="funding-method">${isCash?`Kontanter (${esc(cur)})`:'Revolut'}</div>
+          <div class="funding-note">${esc(f.note || formatDate(f.date))}</div>
+        </div>
+        <div class="funding-amt">
+          <div class="funding-amt-dkk">+${fmtDKK(f.dkk||0)}</div>
+          ${localStr ? `<div class="funding-amt-local">${localStr}</div>` : ""}
+        </div>
+      </div>`;
+    }).join("");
+  }
+  html += `</div>`;
+  el.innerHTML = html;
+}
+
+function renderCurFilter() {
+  const el = document.getElementById("cur-filter");
+  const avail = new Set();
+  expenses.forEach(e => {
+    if (expenseMatchesFilter(e, "TRY")) avail.add("TRY");
+    if (expenseMatchesFilter(e, "EUR")) avail.add("EUR");
+    if (expenseMatchesFilter(e, "revolut")) avail.add("revolut");
+    if (expenseMatchesFilter(e, "other")) avail.add("other");
+  });
+  if (avail.size === 0) { el.innerHTML = ""; return; }
+  const defs = [
+    { id:"TRY",     label:"TRY" },
+    { id:"EUR",     label:"EUR" },
+    { id:"revolut", label:"🏦 Revolut" },
+    { id:"other",   label:"Anden" },
+  ].filter(d => avail.has(d.id));
+  el.innerHTML = defs.map(d =>
+    `<button class="${cashFilter===d.id?'on':''}" onclick="setCashFilter('${d.id}')">${esc(d.label)}</button>`
+  ).join("");
+}
+
+window.setCashFilter = function(f) {
+  cashFilter = (cashFilter === f) ? null : f; // tryk igen = slå fra
+  animateNextList = true;
+  renderCurFilter();
+  renderExpenses();
+};
+
+// Samlet matcher: "TRY"/"EUR" = kontant i valuta (også gammel "cash"-data),
+// "revolut" = Revolut, "other" = Dansk kort + Anden.
+function expenseMatchesFilter(e, f) {
+  if (f === "TRY" || f === "EUR") {
+    if (!isCashMethod(e.method)) return false;
+    const spendMethod = f === "EUR" ? "cash_eur" : "cash_try";
+    return e.method === spendMethod ||
+      ((e.method === "cash" || !e.method) && (e.currency||activeTrip.currency) === f);
+  }
+  if (f === "revolut") return e.method === "revolut";
+  if (f === "other")   return e.method === "card_dk" || e.method === "other";
+  return true;
+}
+function filterIsLocalCur(f) { return f === "TRY" || f === "EUR"; }
+
+
+function renderExpenses() {
+  const el = document.getElementById("expense-list");
+  if (!expenses.length) {
+    el.innerHTML = `<div class="empty-state">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>
+      <div style="font-size:15px;margin-bottom:4px;">Ingen udgifter endnu</div>
+      <div style="font-size:13px;">Tryk på + for at tilføje den første</div>
+    </div>`;
+    return;
+  }
+
+  // Anvend filtre (valuta-filter og/eller kategori-filter kan være aktive samtidig)
+  let shown = expenses;
+  if (cashFilter) shown = shown.filter(e => expenseMatchesFilter(e, cashFilter));
+  if (catFilter)  shown = shown.filter(e => e.category === catFilter);
+
+  let sumBar = "";
+  if (cashFilter) {
+    const sumDKK = shown.reduce((s,e)=>s+(e.dkk||0),0);
+    let lbl, val;
+    if (filterIsLocalCur(cashFilter)) {
+      const sumLocal = shown.reduce((s,e)=>s+(e.localAmount||0),0);
+      lbl = `💵 Kontant brugt i ${esc(cashFilter)} (${shown.length} køb)`;
+      val = `${sumLocal.toLocaleString("da-DK",{maximumFractionDigits:0})} ${esc(cashFilter)}`;
+    } else {
+      const name = cashFilter === "revolut" ? "🏦 Revolut" : "Anden (kort m.m.)";
+      lbl = `${name} (${shown.length} køb)`;
+      val = fmtDKK(sumDKK);
+    }
+    sumBar = `<div class="cur-filter-sum"><span class="lbl">${lbl}</span><span class="val">${val}</span></div>`;
+  } else if (catFilter) {
+    const sumDKK = shown.reduce((s,e)=>s+(e.dkk||0),0);
+    const cc = catByName(catFilter);
+    sumBar = `<div class="cur-filter-sum"><span class="lbl">${cc.icon} ${esc(catFilter)} (${shown.length} køb)</span><span class="val">${fmtDKK(sumDKK)}</span></div>`;
+  }
+
+  if (!shown.length) {
+    if (animateNextList) { el.classList.remove("list-fade"); void el.offsetWidth; el.classList.add("list-fade"); animateNextList = false; }
+    el.innerHTML = sumBar + `<div style="text-align:center;color:var(--ink-3);font-size:13px;padding:24px 0;">Ingen udgifter i dette filter</div>`;
+    return;
+  }
+
+  // Gruppér efter dato (nyeste først)
+  const byDate = {};
+  shown.forEach(e => { (byDate[e.date] = byDate[e.date] || []).push(e); });
+  const dates = Object.keys(byDate).sort().reverse();
+
+  // Blød fade-in kun ved filter-skift (ikke ved fx afstemning), så det føles hurtigt uden at blinke
+  if (animateNextList) {
+    el.classList.remove("list-fade");
+    void el.offsetWidth; // reflow-hack: genstarter animationen
+    el.classList.add("list-fade");
+    animateNextList = false;
+  } else {
+    el.classList.remove("list-fade");
+  }
+  el.innerHTML = sumBar + dates.map(date => {
+    const dayTotal = byDate[date].reduce((s,e)=>s+(e.dkk||0),0);
+    const rows = byDate[date]
+      .sort((a,b) => (b.created||0)-(a.created||0))
+      .map(e => {
+        const c = catByName(e.category);
+        const localStr = (e.currency && e.currency !== "DKK" && e.localAmount)
+          ? `${e.localAmount.toLocaleString("da-DK",{maximumFractionDigits:2})} ${esc(e.currency)}` : "";
+        return `<div class="exp-row${e.reconciled ? ' reconciled' : ''}" onclick="editExpense('${e.id}')">
+          <div class="exp-cat-icon" style="background:${c.color}22;">${c.icon}</div>
+          <div class="exp-mid">
+            <div class="exp-note">${esc(e.note || e.category)}</div>
+            <div class="exp-cat-label">${c.icon} ${esc(e.category)} · ${methodIcon(e.method)}</div>
+          </div>
+          <div class="exp-amt-wrap">
+            <div class="exp-amt-dkk">${fmtDKK(e.dkk||0)}</div>
+            ${localStr ? `<div class="exp-amt-local">${localStr}</div>` : ""}
+          </div>
+          <div class="exp-check${e.reconciled ? ' on' : ''}" onclick="event.stopPropagation(); toggleReconciled('${e.id}')" title="Markér som afstemt">
+            <svg viewBox="0 0 24 24" fill="none"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+        </div>`;
+      }).join("");
+    return `<div class="date-group">
+      <div class="date-header"><span>${formatDate(date)}</span><span>${fmtDKK(dayTotal)}</span></div>
+      ${rows}
+    </div>`;
+  }).join("");
+}
+
+function renderEmpty() {
+  document.getElementById("hero-area").innerHTML = "";
+  document.getElementById("cat-summary").innerHTML = "";
+  document.getElementById("expense-list").innerHTML = `<div class="empty-state">
+    <div style="font-size:15px;margin-bottom:4px;">Ingen rejser endnu</div>
+    <div style="font-size:13px;">Tryk "+ Ny rejse" for at komme i gang</div>
+  </div>`;
+}
+
+/* ── EXPENSE SHEET ── */
+window.openExpenseSheet = function() {
+  document.getElementById("e-edit-id").value = "";
+  document.getElementById("expense-sheet-title").textContent = "Ny omkostning";
+  document.getElementById("e-delete-btn").style.display = "none";
+  document.getElementById("e-amount").value = "";
+  document.getElementById("e-note").value = "";
+  const t = new Date();
+  document.getElementById("e-date").value = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;
+  inputCurrency = "local";
+  selectedCat = getCats()[0]?.name || "Andet";
+  renderCatPicker();
+  pickExpenseMethod("cash_try");
+  updateConversionHint();
+  document.getElementById("expense-sheet").classList.add("open");
+};
+
+window.editExpense = function(id) {
+  const e = expenses.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById("e-edit-id").value = id;
+  document.getElementById("expense-sheet-title").textContent = "Rediger omkostning";
+  document.getElementById("e-delete-btn").style.display = "block";
+  selectedCat = e.category;
+  renderCatPicker();
+
+  // Bestem metode først (bagudkompatibel: gamle udgifter havde "cash"/"revolut" uden valuta-suffix)
+  let em = e.method;
+  if (em === "cash" || !em) em = (e.currency === "EUR") ? "cash_eur" : "cash_try";
+  if (!EXPENSE_METHODS.some(m => m.id === em)) em = "cash_try";
+  const m = methodById(em);
+
+  // For kort/andet: sæt valuta-toggle til den gemte valuta FØR pickExpenseMethod låser det
+  if (!m.fixedCur) {
+    inputCurrency = e.currency === "EUR" ? "eur" : (e.currency === "DKK" || !e.currency ? "dkk" : "local");
+  }
+  pickExpenseMethod(em);
+
+  // Sæt beløb + kurs EFTER metode/valuta er på plads
+  if (e.currency === "DKK" || !e.currency) {
+    document.getElementById("e-amount").value = e.dkk ?? "";
+  } else {
+    document.getElementById("e-amount").value = e.localAmount ?? "";
+    if (e.rateUsed) document.getElementById("e-rate").value = e.rateUsed;
+  }
+  document.getElementById("e-date").value = e.date || "";
+  document.getElementById("e-note").value = e.note || "";
+  updateConversionHint();
+  document.getElementById("expense-sheet").classList.add("open");
+};
+
+window.closeExpenseSheet = () => document.getElementById("expense-sheet").classList.remove("open");
+
+window.setCurrency = function(cur) {
+  inputCurrency = cur;
+  document.getElementById("cur-local").classList.toggle("active", cur === "local");
+  document.getElementById("cur-eur").classList.toggle("active", cur === "eur");
+  document.getElementById("cur-dkk").classList.toggle("active", cur === "dkk");
+  document.getElementById("cur-local").textContent = activeTrip?.currency || "TRY";
+  // Skjul lokal-knap hvis rejsens valuta allerede ER EUR (undgå dublet)
+  document.getElementById("cur-local").style.display = (activeTrip?.currency === "EUR") ? "none" : "";
+
+  // Vis/skjul redigerbart kurs-felt – kun relevant når man taster i fremmed valuta
+  const rateRow = document.getElementById("e-rate-row");
+  if (cur === "local") {
+    rateRow.style.display = "flex";
+    document.getElementById("e-rate").value = lastLocalRate ?? activeTrip?.rate ?? 1;
+  } else if (cur === "eur") {
+    rateRow.style.display = "flex";
+    document.getElementById("e-rate").value = lastEurRate;
+  } else {
+    rateRow.style.display = "none";
+  }
+  updateConversionHint();
+};
+
+document.getElementById("e-amount").addEventListener("input", updateConversionHint);
+
+function getEditableRate(prefix) {
+  const el = document.getElementById(prefix + "-rate");
+  const v = el ? parseFloat(el.value) : NaN;
+  return (!isNaN(v) && v > 0) ? v : null;
+}
+
+window.onRateInput = function(prefix) {
+  if (prefix === "e") updateConversionHint();
+  else updateFundingConversionHint();
+};
+
+function updateConversionHint() {
+  const raw = parseFloat(document.getElementById("e-amount").value);
+  const hint = document.getElementById("e-conversion-text");
+  const plain = document.getElementById("conversion-hint");
+  if (isNaN(raw) || !activeTrip) { if(hint) hint.textContent=""; plain.textContent = ""; return; }
+  if (inputCurrency === "local") {
+    const rate = getEditableRate("e") ?? activeTrip.rate ?? 1;
+    hint.textContent = `≈ ${fmtDKK(raw * rate)}`;
+    plain.textContent = "";
+  } else if (inputCurrency === "eur") {
+    const rate = getEditableRate("e") ?? EUR_RATE;
+    hint.textContent = `≈ ${fmtDKK(raw * rate)}`;
+    plain.textContent = "";
+  } else {
+    const local = activeTrip.rate ? raw / activeTrip.rate : 0;
+    plain.textContent = `≈ ${local.toLocaleString("da-DK",{maximumFractionDigits:2})} ${esc(activeTrip.currency||"")}`;
+  }
+}
+
+function renderCatPicker() {
+  const el = document.getElementById("cat-picker");
+  let html = getCats().map(c =>
+    `<div class="cat-choice ${selectedCat===c.name?'active':''}" onclick="pickCat('${esc(c.name).replace(/'/g,"\\\\'")}')">${c.icon} ${esc(c.name)}</div>`
+  ).join("");
+  html += `<div class="cat-choice cat-choice-add" onclick="addCategory()">+ Ny</div>`;
+  el.innerHTML = html;
+}
+
+window.pickCat = function(name) { selectedCat = name; renderCatPicker(); };
+
+function renderExpenseMethodGrid() {
+  const grid = document.getElementById("e-method-grid");
+  grid.innerHTML = EXPENSE_METHODS.map(m => {
+    const cls = m.id === expenseMethod ? "method-choice on" : "method-choice";
+    const full = m.id === "other" ? " full" : "";
+    return `<div class="${cls}${full}" id="e-method-${m.id}" onclick="pickExpenseMethod('${m.id}')">${m.icon} ${esc(m.label)}</div>`;
+  }).join("");
+}
+
+window.pickExpenseMethod = function(id) {
+  expenseMethod = id;
+  const m = methodById(id);
+  renderExpenseMethodGrid();
+  // Kontanter: lås valuta (skjul toggle). Kort/andet: vis toggle så bruger vælger valuta pr. køb.
+  const toggle = document.querySelector("#expense-sheet .cur-toggle");
+  if (m.fixedCur) {
+    toggle.style.display = "none";
+    setCurrency(m.fixedCur === "EUR" ? "eur" : "local");
+  } else {
+    toggle.style.display = "";
+    // behold nuværende valgte valuta
+    setCurrency(inputCurrency);
+  }
+};
+
+window.addCategory = async function() {
+  const name = prompt("Navn på ny kategori?");
+  if (!name || !name.trim()) return;
+  const icons = ["🎒","🍷","⛱️","🎁","💊","📷","🎵","🚌","🏖️","🍹"];
+  const colors = ["#0d9488","#e84040","#2563eb","#7c3aed","#d97706","#db2777"];
+  const cat = { name: name.trim(), icon: icons[Math.floor(Math.random()*icons.length)], color: colors[Math.floor(Math.random()*colors.length)] };
+  activeTrip.cats = getCats().concat([cat]);
+  try {
+    await setDoc(doc(db, "trips", activeTrip.id), { cats: activeTrip.cats }, { merge: true });
+  } catch(e) { toast("Kunne ikke gemme kategori", "error"); }
+  selectedCat = cat.name;
+  renderCatPicker();
+};
+
+window.saveExpense = async function() {
+  const raw = parseFloat(String(document.getElementById("e-amount").value).replace(",", "."));
+  const date = document.getElementById("e-date").value;
+  const note = document.getElementById("e-note").value.trim();
+  if (isNaN(raw) || raw <= 0) { toast("Skriv et gyldigt beløb", "error"); return; }
+  if (!date) { toast("Vælg en dato", "error"); return; }
+  if (!selectedCat) { toast("Vælg en kategori", "error"); return; }
+
+  let dkk, localAmount, currency, rateUsed = null;
+  if (inputCurrency === "dkk") {
+    dkk = raw; localAmount = activeTrip.rate ? raw/activeTrip.rate : 0; currency = "DKK";
+  } else if (inputCurrency === "eur") {
+    rateUsed = getEditableRate("e") ?? EUR_RATE;
+    dkk = raw * rateUsed; localAmount = raw; currency = "EUR";
+    lastEurRate = rateUsed;
+  } else {
+    rateUsed = getEditableRate("e") ?? activeTrip.rate ?? 1;
+    dkk = raw * rateUsed; localAmount = raw; currency = activeTrip.currency || "";
+    lastLocalRate = rateUsed;
+  }
+  const data = {
+    dkk: Math.round(dkk * 100) / 100,
+    rateUsed,
+    localAmount: Math.round(localAmount * 100) / 100,
+    currency, date, category: selectedCat, note,
+    method: expenseMethod,
+    created: Date.now()
+  };
+
+  const editId = document.getElementById("e-edit-id").value;
+  // Bevar afstemt-status ved redigering (nulstil ikke fluebenet)
+  if (editId) {
+    const existing = expenses.find(x => x.id === editId);
+    if (existing && existing.reconciled) data.reconciled = true;
+  }
+  try {
+    if (editId) {
+      await setDoc(doc(db, "trips", activeTrip.id, "expenses", editId), data);
+      expenses = expenses.map(e => e.id===editId ? { id:editId, ...data } : e);
+    } else {
+      const ref = await addDoc(collection(db, "trips", activeTrip.id, "expenses"), data);
+      expenses.push({ id: ref.id, ...data });
+    }
+    toast("Gemt ✓", "success");
+    window.AppCore.logAudit(db, { addDoc, collection }, editId ? "Rettede rejseomkostning" : "Tilføjede rejseomkostning", `${activeTrip.name} · ${selectedCat} · ${fmtDKK(data.dkk)}`);
+  } catch(e) {
+    toast("Kunne ikke gemme – tjek forbindelsen", "error");
+  }
+  closeExpenseSheet();
+  renderAll();
+};
+
+window.deleteExpense = async function() {
+  const editId = document.getElementById("e-edit-id").value;
+  if (!editId) return;
+  if (!confirm("Slet denne omkostning?")) return;
+  try { await deleteDoc(doc(db, "trips", activeTrip.id, "expenses", editId)); }
+  catch(e) { toast("Kunne ikke slette", "error"); }
+  expenses = expenses.filter(e => e.id !== editId);
+  closeExpenseSheet();
+  renderAll();
+};
+
+window.toggleReconciled = async function(id) {
+  const e = expenses.find(x => x.id === id);
+  if (!e) return;
+  const newVal = !e.reconciled;
+  e.reconciled = newVal; // optimistisk – opdatér UI straks
+  renderExpenses();
+  try {
+    await setDoc(doc(db, "trips", activeTrip.id, "expenses", id), { reconciled: newVal }, { merge: true });
+  } catch(err) {
+    e.reconciled = !newVal; // rul tilbage ved fejl
+    renderExpenses();
+    toast("Kunne ikke gemme afstemning", "error");
+  }
+};
+
+/* ── FUNDING SHEET (Kontanter & Revolut) ── */
+window.openFundingSheet = function() {
+  document.getElementById("f-edit-id").value = "";
+  document.getElementById("funding-sheet-title").textContent = "Hævning / overførsel";
+  document.getElementById("f-delete-btn").style.display = "none";
+  document.getElementById("f-amount").value = "";
+  document.getElementById("f-note").value = "";
+  const t = new Date();
+  document.getElementById("f-date").value = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;
+  setFundingCurrency("local");
+  pickMethod("cash");
+  document.getElementById("funding-sheet").classList.add("open");
+};
+
+window.editFunding = function(id) {
+  const f = funding.find(x => x.id === id);
+  if (!f) return;
+  document.getElementById("f-edit-id").value = id;
+  document.getElementById("funding-sheet-title").textContent = "Rediger hævning";
+  document.getElementById("f-delete-btn").style.display = "block";
+  if (f.currency === "EUR") {
+    setFundingCurrency("eur");
+    document.getElementById("f-amount").value = f.localAmount ?? "";
+    if (f.rateUsed) document.getElementById("f-rate").value = f.rateUsed;
+  } else if (f.currency && f.currency !== "DKK") {
+    setFundingCurrency("local");
+    document.getElementById("f-amount").value = f.localAmount ?? "";
+    if (f.rateUsed) document.getElementById("f-rate").value = f.rateUsed;
+  } else {
+    setFundingCurrency("dkk");
+    document.getElementById("f-amount").value = f.dkk ?? "";
+  }
+  pickMethod(f.method || "cash");
+  document.getElementById("f-date").value = f.date || "";
+  document.getElementById("f-note").value = f.note || "";
+  updateFundingConversionHint();
+  document.getElementById("funding-sheet").classList.add("open");
+};
+
+window.closeFundingSheet = () => document.getElementById("funding-sheet").classList.remove("open");
+
+window.pickMethod = function(m) {
+  fundingMethod = m;
+  document.getElementById("method-cash").classList.toggle("on", m === "cash");
+  document.getElementById("method-revolut").classList.toggle("on", m === "revolut");
+};
+
+window.setFundingCurrency = function(cur) {
+  fundingCurrency = cur;
+  document.getElementById("fcur-local").classList.toggle("active", cur === "local");
+  document.getElementById("fcur-eur").classList.toggle("active", cur === "eur");
+  document.getElementById("fcur-dkk").classList.toggle("active", cur === "dkk");
+  document.getElementById("fcur-local").textContent = activeTrip?.currency || "TRY";
+  document.getElementById("fcur-local").style.display = (activeTrip?.currency === "EUR") ? "none" : "";
+
+  const rateRow = document.getElementById("f-rate-row");
+  if (cur === "local") {
+    rateRow.style.display = "flex";
+    document.getElementById("f-rate").value = lastLocalRate ?? activeTrip?.rate ?? 1;
+  } else if (cur === "eur") {
+    rateRow.style.display = "flex";
+    document.getElementById("f-rate").value = lastEurRate;
+  } else {
+    rateRow.style.display = "none";
+  }
+  updateFundingConversionHint();
+};
+
+document.getElementById("f-amount").addEventListener("input", updateFundingConversionHint);
+
+function updateFundingConversionHint() {
+  const raw = parseFloat(document.getElementById("f-amount").value);
+  const hint = document.getElementById("f-conversion-text");
+  const plain = document.getElementById("funding-conversion-hint");
+  if (isNaN(raw) || !activeTrip) { if(hint) hint.textContent=""; plain.textContent = ""; return; }
+  if (fundingCurrency === "local") {
+    const rate = getEditableRate("f") ?? activeTrip.rate ?? 1;
+    hint.textContent = `≈ ${fmtDKK(raw * rate)}`;
+    plain.textContent = "";
+  } else if (fundingCurrency === "eur") {
+    const rate = getEditableRate("f") ?? EUR_RATE;
+    hint.textContent = `≈ ${fmtDKK(raw * rate)}`;
+    plain.textContent = "";
+  } else {
+    const local = activeTrip.rate ? raw / activeTrip.rate : 0;
+    plain.textContent = `≈ ${local.toLocaleString("da-DK",{maximumFractionDigits:2})} ${esc(activeTrip.currency||"")}`;
+  }
+}
+
+window.saveFunding = async function() {
+  const raw = parseFloat(String(document.getElementById("f-amount").value).replace(",", "."));
+  const date = document.getElementById("f-date").value;
+  const note = document.getElementById("f-note").value.trim();
+  if (isNaN(raw) || raw <= 0) { toast("Skriv et gyldigt beløb", "error"); return; }
+  if (!date) { toast("Vælg en dato", "error"); return; }
+
+  let dkk, localAmount, currency, rateUsed = null;
+  if (fundingCurrency === "dkk") {
+    dkk = raw; localAmount = activeTrip.rate ? raw/activeTrip.rate : 0; currency = "DKK";
+  } else if (fundingCurrency === "eur") {
+    rateUsed = getEditableRate("f") ?? EUR_RATE;
+    dkk = raw * rateUsed; localAmount = raw; currency = "EUR";
+    lastEurRate = rateUsed;
+  } else {
+    rateUsed = getEditableRate("f") ?? activeTrip.rate ?? 1;
+    dkk = raw * rateUsed; localAmount = raw; currency = activeTrip.currency || "";
+    lastLocalRate = rateUsed;
+  }
+
+  const data = {
+    dkk: Math.round(dkk * 100) / 100,
+    rateUsed,
+    localAmount: Math.round(localAmount * 100) / 100,
+    currency, method: fundingMethod, date, note,
+    created: Date.now()
+  };
+
+  const editId = document.getElementById("f-edit-id").value;
+  try {
+    if (editId) {
+      await setDoc(doc(db, "trips", activeTrip.id, "funding", editId), data);
+      funding = funding.map(f => f.id===editId ? { id:editId, ...data } : f);
+    } else {
+      const ref = await addDoc(collection(db, "trips", activeTrip.id, "funding"), data);
+      funding.push({ id: ref.id, ...data });
+    }
+    toast("Gemt ✓", "success");
+    window.AppCore.logAudit(db, { addDoc, collection }, editId ? "Rettede hævning" : "Registrerede hævning", `${activeTrip.name} · ${fundingMethod==="cash"?"Kontanter":"Revolut"} · ${fmtDKK(data.dkk)}`);
+  } catch(e) {
+    toast("Kunne ikke gemme – tjek forbindelsen", "error");
+  }
+  closeFundingSheet();
+  renderAll();
+};
+
+window.deleteFunding = async function() {
+  const editId = document.getElementById("f-edit-id").value;
+  if (!editId) return;
+  if (!confirm("Slet denne hævning?")) return;
+  try { await deleteDoc(doc(db, "trips", activeTrip.id, "funding", editId)); }
+  catch(e) { toast("Kunne ikke slette", "error"); }
+  funding = funding.filter(f => f.id !== editId);
+  closeFundingSheet();
+  renderAll();
+};
+
+/* ── TRIP SHEET ── */
+window.openTripSheet = function() {
+  document.getElementById("t-name").value = "";
+  document.getElementById("t-currency").value = "";
+  document.getElementById("t-rate").value = "";
+  document.getElementById("trip-sheet").classList.add("open");
+};
+window.closeTripSheet = () => document.getElementById("trip-sheet").classList.remove("open");
+
+window.saveTrip = async function() {
+  const name = document.getElementById("t-name").value.trim();
+  const currency = document.getElementById("t-currency").value.trim().toUpperCase();
+  const rate = parseFloat(String(document.getElementById("t-rate").value).replace(",", "."));
+  if (!name) { toast("Skriv et rejsemål", "error"); return; }
+  const data = { name, currency: currency||"DKK", rate: isNaN(rate) ? 1 : rate, cats: DEFAULT_CATS, created: Date.now() };
+  try {
+    const ref = await addDoc(collection(db, "trips"), data);
+    const trip = { id: ref.id, ...data };
+    trips.push(trip);
+    activeTrip = trip;
+    toast("Rejse oprettet ✓", "success");
+    window.AppCore.logAudit(db, { addDoc, collection }, "Oprettede rejse", name);
+  } catch(e) {
+    toast("Kunne ikke oprette rejse", "error");
+  }
+  closeTripSheet();
+  renderTripSelector();
+  loadExpenses();
+};
+
+window.exportTrip = function() {
+  if (!activeTrip || (!expenses.length && !funding.length)) { toast("Ingen data at eksportere", "error"); return; }
+  const expRows = expenses.map(e => ({
+    Type: "Udgift", Dato: e.date, Kategori: e.category, Note: e.note||"",
+    Lokalt_beloeb: e.localAmount||"", Valuta: e.currency||"", DKK: e.dkk||0
+  }));
+  const fundRows = funding.map(f => ({
+    Type: "Hævning", Dato: f.date, Kategori: f.method==="cash"?"Kontanter":"Revolut", Note: f.note||"",
+    Lokalt_beloeb: f.localAmount||"", Valuta: f.currency||"", DKK: f.dkk||0
+  }));
+  const rows = [...expRows, ...fundRows].sort((a,b) => (a.Dato||"").localeCompare(b.Dato||""));
+  window.AppCore.exportCSV(`rejse_${activeTrip.name.replace(/\s+/g,"_")}`, rows);
+};
+
+/* Luk sheets ved klik på overlay */
+["expense-sheet","trip-sheet","funding-sheet"].forEach(id => {
+  document.getElementById(id).addEventListener("click", function(e) {
+    if (e.target === this) this.classList.remove("open");
+  });
+});
+
+function formatDate(ymd) {
+  if (!ymd) return "";
+  const d = new Date(ymd + "T00:00:00");
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((today - d) / 86400000);
+  const days = ["Søndag","Mandag","Tirsdag","Onsdag","Torsdag","Fredag","Lørdag"];
+  const months = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
+  let rel = "";
+  if (diff === 0) rel = "I dag · ";
+  else if (diff === 1) rel = "I går · ";
+  return `${rel}${days[d.getDay()]} ${d.getDate()}. ${months[d.getMonth()]}`;
+}
+</script>
+</body>
+</html>

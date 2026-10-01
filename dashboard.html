@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a9e6e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Familiebudget">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="app-core.css?v=27">
+<script src="app-core.js?v=27" defer></script>
+<title>Familiebudget · Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+/* Kun det, der er særligt for dashboardet.
+   Alt fælles (sidebar, topbar, kort, knapper, farver, mørkt tema)
+   ligger nu i app-core.css. */
+
+.content { padding: 28px; max-width: 1200px; }
+
+/* Månedsnavigation i topbaren */
+.month-nav { display: flex; align-items: center; gap: 8px; }
+.month-btn {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid var(--border2); background: var(--white);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: var(--ink-2); transition: background 0.1s;
+}
+.month-btn:hover { background: var(--surface); }
+.month-btn svg { width: 14px; height: 14px; stroke-width: 2; }
+.month-label { font-size: 14px; font-weight: 500; min-width: 120px; text-align: center; }
+
+/* Nøgletal */
+.metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+.metric { padding: 18px 20px; }
+.metric-value { font-size: 24px; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 24px; }
+
+/* Kommende betalinger */
+.payment-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.payment-item:last-child { border-bottom: none; padding-bottom: 0; }
+.pay-icon {
+  width: 34px; height: 34px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 15px; background: var(--surface);
+}
+.pay-info { flex: 1; min-width: 0; }
+.pay-name { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pay-cat { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.pay-right { text-align: right; flex-shrink: 0; }
+.pay-amount { font-size: 13px; font-weight: 500; }
+.pay-date { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+
+/* Opsparingsmål */
+.sav-item { margin-bottom: 14px; }
+.sav-item:last-child { margin-bottom: 0; }
+.sav-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.sav-name { font-size: 13px; font-weight: 500; }
+.sav-pct { font-size: 12px; color: var(--ink-3); }
+.sav-amounts { font-size: 11px; color: var(--ink-3); margin-bottom: 5px; font-variant-numeric: tabular-nums; }
+.sav-track { height: 5px; background: var(--track); border-radius: 3px; overflow: hidden; }
+.sav-fill { height: 100%; border-radius: 3px; background: var(--green); transition: width 0.6s ease; }
+
+/* Økonomisk sundhed */
+.health-wrap { display: flex; align-items: center; gap: 20px; margin-bottom: 6px; }
+.donut-wrap { position: relative; width: 84px; height: 84px; flex-shrink: 0; }
+.donut-num {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: 'DM Serif Display', serif; font-size: 24px; color: var(--green);
+}
+.health-bars { flex: 1; min-width: 0; }
+.hbar { margin-bottom: 11px; }
+.hbar:last-child { margin-bottom: 0; }
+.hbar-label { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--ink-2); margin-bottom: 4px; }
+.hbar-label b { font-weight: 500; font-variant-numeric: tabular-nums; }
+.hbar-track { height: 5px; background: var(--track); border-radius: 3px; overflow: hidden; }
+.hbar-fill { height: 100%; border-radius: 3px; background: var(--green); transition: width 0.6s ease; }
+.health-note { font-size: 11.5px; color: var(--ink-3); margin-top: 12px; line-height: 1.5; }
+
+.chart-wrap { position: relative; height: 220px; }
+
+/* Historik */
+.audit-item { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.audit-item:last-child { border-bottom: none; }
+.audit-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); margin-top: 6px; flex-shrink: 0; }
+.audit-text { font-size: 13px; color: var(--ink); }
+.audit-meta { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+
+.empty { color: var(--ink-3); font-size: 13px; text-align: center; padding: 18px 0; }
+
+@media (max-width: 900px) { .metrics-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px) {
+  .two-col { grid-template-columns: 1fr; }
+  .content { padding: 14px; }
+  .month-label { min-width: 96px; font-size: 13px; }
+}
+@media (max-width: 480px) { .metrics-grid { grid-template-columns: 1fr 1fr; gap: 10px; } }
+</style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar" data-active="dashboard"></aside>
+
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="hamburger" onclick="toggleSidebar()" aria-label="Åbn menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title">Dashboard</span>
+    </div>
+    <div class="month-nav">
+      <button class="month-btn" onclick="changeMonth(-1)" aria-label="Forrige måned">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="month-label" id="monthLabel">–</span>
+      <button class="month-btn" onclick="changeMonth(1)" aria-label="Næste måned">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <div class="metrics-grid">
+      <div class="metric">
+        <div class="metric-label">MÅNEDENS INDTÆGTER</div>
+        <div class="metric-value pos" id="m-income">–</div>
+        <div class="metric-sub" id="m-income-sub"></div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">MÅNEDENS UDGIFTER</div>
+        <div class="metric-value neg" id="m-expenses">–</div>
+        <div class="metric-sub" id="m-expenses-sub"></div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">TIL REST</div>
+        <div class="metric-value" id="m-result">–</div>
+        <div class="metric-sub" id="m-result-sub"></div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">LAGT TIL SIDE</div>
+        <div class="metric-value info" id="m-savings">–</div>
+        <div class="metric-sub" id="m-savings-sub"></div>
+      </div>
+    </div>
+
+    <div class="two-col">
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Kommende betalinger</span>
+          <span class="card-hint">Resten af måneden</span>
+        </div>
+        <div id="payments-list">
+          <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton sm"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:18px;">
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Økonomisk sundhed</span>
+            <span class="badge badge-g" id="health-badge">–</span>
+          </div>
+          <div class="health-wrap">
+            <div class="donut-wrap">
+              <canvas id="donutChart" width="84" height="84" role="img" aria-label="Samlet sundhedsscore"></canvas>
+              <div class="donut-num" id="health-score">–</div>
+            </div>
+            <div class="health-bars">
+              <div class="hbar">
+                <div class="hbar-label"><span>Opsparingsgrad</span><b id="hb-savings">–</b></div>
+                <div class="hbar-track"><div class="hbar-fill" id="hb-savings-bar" style="width:0%"></div></div>
+              </div>
+              <div class="hbar">
+                <div class="hbar-label"><span>Faste udgifter af indkomst</span><b id="hb-fixed">–</b></div>
+                <div class="hbar-track"><div class="hbar-fill" id="hb-fixed-bar" style="width:0%;background:var(--amber)"></div></div>
+              </div>
+              <div class="hbar">
+                <div class="hbar-label"><span>Gæld ift. årsindkomst</span><b id="hb-debt">–</b></div>
+                <div class="hbar-track"><div class="hbar-fill" id="hb-debt-bar" style="width:0%;background:var(--blue)"></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="health-note" id="health-note"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Opsparingsmål</span>
+            <a href="opsparing.html" style="font-size:12px;color:var(--green);text-decoration:none;">Se alle</a>
+          </div>
+          <div id="savings-list">
+            <div class="skeleton"></div><div class="skeleton sm"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Udgifter pr. kategori</span>
+          <span class="card-hint" id="chart-month-label">–</span>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="catChart" role="img" aria-label="Søjlediagram over udgifter pr. kategori"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><span class="card-title">Årets nøgletal</span></div>
+        <div id="yearly-stats">
+          <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Seneste ændringer</span>
+        <span class="card-hint">Historik</span>
+      </div>
+      <div id="audit-list">
+        <div class="skeleton"></div><div class="skeleton sm"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+/* Firebase initialiseres ét sted – se db.js.
+   Det er dér, rettelsen af den langsomme mobilforbindelse ligger. */
+import { db, requireAuth } from "./db.js?v=27";
+import { collection, getDocs, query, orderBy, limit }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const esc    = window.AppCore.esc;
+const fmtDKK = window.AppCore.fmtDKK;
+const toast  = window.AppCore.toast;
+const PALETTE = window.AppCore.CHART_PALETTE;
+
+const DATA_YEAR = 2026;   // året budgettallene er tastet i (skabelon)
+const MONTHS = ["Januar","Februar","Marts","April","Maj","Juni","Juli","August","September","Oktober","November","December"];
+const MON_SHORT = ["jan","feb","mar","apr","maj","jun","jul","aug","sep","okt","nov","dec"];
+
+let currentYear  = window.AppCore.BUDGET_YEAR;
+let currentMonth = new Date().getMonth();
+
+requireAuth(() => {
+  updateMonthLabel();
+  loadDashboard();
+});
+
+window.toggleSidebar = () => { document.getElementById("sidebar").classList.toggle("open"); document.getElementById("overlay").classList.toggle("show"); };
+window.closeSidebar  = () => { document.getElementById("sidebar").classList.remove("open"); document.getElementById("overlay").classList.remove("show"); };
+
+function updateMonthLabel() {
+  const label = `${MONTHS[currentMonth]} ${currentYear}`;
+  document.getElementById("monthLabel").textContent = label;
+  document.getElementById("chart-month-label").textContent = label;
+}
+
+window.changeMonth = (dir) => {
+  currentMonth += dir;
+  if (currentMonth < 0)  { currentMonth = 11; currentYear--; }
+  if (currentMonth > 11) { currentMonth = 0;  currentYear++; }
+  updateMonthLabel();
+  loadDashboard();
+};
+
+/* Beløb for en given måned.
+   For år efter DATA_YEAR genbruges skabelonmåneden – samme regel
+   som cashflow-siden, så tallene aldrig kan divergere. */
+function getMonthVal(e, key) {
+  if (e.months && e.months[key] !== undefined) return e.months[key];
+  const [y, m] = key.split("-");
+  if (parseInt(y) > DATA_YEAR && e.months && e.months[`${DATA_YEAR}-${m}`] !== undefined) {
+    return e.months[`${DATA_YEAR}-${m}`];
+  }
+  return e.monthly_amount ?? 0;
+}
+
+/* Deler posterne i tre: indtægt, forbrug og opsparing.
+   Overførsel til egen opsparingskonto er IKKE en udgift – pengene
+   er stadig familiens. Det var det, der før trak opsparingsgraden
+   kunstigt ned mod nul. */
+function splitMonth(entries, key) {
+  let income = 0, spending = 0, saving = 0;
+  const catTotals = {};
+  entries.forEach(e => {
+    const amt = getMonthVal(e, key);
+    if (!amt) return;
+    if (e.type === "income") { income += Math.abs(amt); return; }
+    if (e.type === "savings") { saving += Math.abs(amt); return; }
+    spending += Math.abs(amt);
+    const cat = e.category || "Øvrige";
+    catTotals[cat] = (catTotals[cat] || 0) + Math.abs(amt);
+  });
+  return { income, spending, saving, catTotals };
+}
+
+async function loadDashboard() {
+  const doneSlow = window.AppCore.watchSlowLoad();
+  try {
+    const [budgetSnap, savSnap, loanSnap] = await Promise.all([
+      getDocs(collection(db, "budget_entries")),
+      getDocs(collection(db, "savings_goals")),
+      getDocs(collection(db, "loans")),
+    ]);
+    doneSlow();
+
+    const entries = budgetSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const goals   = savSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const loans   = loanSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const key = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+    const m = splitMonth(entries, key);
+    const rest = m.income - m.spending - m.saving;
+
+    // ── Årstal ──
+    let yIncome = 0, ySpending = 0, ySaving = 0;
+    for (let i = 0; i < 12; i++) {
+      const k = `${currentYear}-${String(i + 1).padStart(2, "0")}`;
+      const mm = splitMonth(entries, k);
+      yIncome += mm.income; ySpending += mm.spending; ySaving += mm.saving;
+    }
+
+    // ── Nøgletalskort ──
+    setText("m-income",   fmtDKK(m.income));
+    setText("m-expenses", fmtDKK(m.spending));
+    setText("m-result",   fmtDKK(rest));
+    document.getElementById("m-result").className = "metric-value " + (rest >= 0 ? "pos" : "neg");
+    setText("m-savings",  fmtDKK(m.saving));
+
+    setText("m-income-sub",   `${fmtDKK(yIncome)} i år`);
+    setText("m-expenses-sub", m.income > 0 ? `${Math.round(m.spending / m.income * 100)}% af indtægten` : "");
+    setText("m-result-sub",   rest >= 0 ? "efter forbrug og opsparing" : "underskud denne måned");
+    setText("m-savings-sub",  `${fmtDKK(ySaving)} i år`);
+
+    renderHealth(m, rest, yIncome, loans);
+    renderCatChart(m.catTotals);
+    renderPayments(entries, key);
+    renderSavings(goals);
+    renderYearlyStats(yIncome, ySpending, ySaving, loans);
+    loadAudit();
+
+  } catch (err) {
+    doneSlow();
+    console.error("Firestore-fejl:", err);
+    // ALDRIG fiktive tal i en økonomiportal – vis ærlig fejlbesked
+    showLoadError();
+  }
+}
+
+function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
+function showLoadError() {
+  const html = '<div class="load-error">⚠️ Kunne ikke hente data – tjek forbindelsen og genindlæs</div>';
+  ["payments-list", "savings-list", "yearly-stats", "audit-list"].forEach(id => {
+    const el = document.getElementById(id); if (el) el.innerHTML = html;
+  });
+  ["m-income", "m-expenses", "m-result", "m-savings", "health-score"].forEach(id => setText(id, "–"));
+  toast("Data kunne ikke hentes fra skyen", "error");
+}
+
+/* ── ØKONOMISK SUNDHED ──
+   Tidligere var scoren sammensat af faste point uden reelt indhold,
+   og bjælken "Gældsgrad" viste i virkeligheden udgifter/indtægter.
+   Nu måles tre ting, der faktisk betyder noget: */
+function renderHealth(m, rest, yIncome, loans) {
+  const income = m.income;
+
+  // 1. Opsparingsgrad – hvor stor en del af indkomsten der ikke bliver brugt
+  const savedShare = income > 0 ? (m.saving + Math.max(0, rest)) / income * 100 : 0;
+  // 2. Forbrugets andel af indkomsten – jo lavere jo bedre (under 60% er sundt)
+  const fixedShare = income > 0 ? m.spending / income * 100 : 0;
+  // 3. Samlet gæld i forhold til årsindkomst
+  const totalDebt = loans.reduce((s, l) => s + (l.rest > 0 ? l.rest : 0), 0);
+  const debtRatio = yIncome > 0 ? totalDebt / yIncome * 100 : 0;
+
+  let score = 0;
+  score += Math.max(0, Math.min(40, savedShare * 2));          // 20% opsparing = fuldt hus
+  score += Math.max(0, Math.min(30, (100 - fixedShare) * 0.6)); // 50% forbrug = fuldt hus
+  score += Math.max(0, Math.min(30, (300 - debtRatio) * 0.15)); // gæld under 2× årsindkomst = fuldt hus
+  score = Math.round(Math.max(0, Math.min(100, score)));
+
+  setText("health-score", score);
+  const badge = document.getElementById("health-badge");
+  badge.textContent = score >= 75 ? "Fremragende" : score >= 55 ? "God" : score >= 35 ? "OK" : "Kræver opmærksomhed";
+  badge.className = "badge " + (score >= 55 ? "badge-g" : score >= 35 ? "badge-b" : "badge-r");
+
+  bar("hb-savings", "hb-savings-bar", savedShare, Math.min(100, savedShare * 3));
+  bar("hb-fixed",   "hb-fixed-bar",   fixedShare, Math.min(100, fixedShare));
+  bar("hb-debt",    "hb-debt-bar",    debtRatio,  Math.min(100, debtRatio / 3));
+
+  const notes = [];
+  if (savedShare < 10) notes.push("Opsparingsgraden er under 10% – overvej at hæve en fast overførsel.");
+  if (fixedShare > 70) notes.push("Faste udgifter fylder over 70% af indkomsten.");
+  if (totalDebt > 0 && debtRatio < 100) notes.push("Gælden er under én årsindkomst – det er solidt.");
+  document.getElementById("health-note").textContent = notes.join(" ");
+
+  function bar(labelId, barId, pct, width) {
+    setText(labelId, Math.round(pct) + "%");
+    document.getElementById(barId).style.width = Math.max(0, width) + "%";
+  }
+
+  const existing = Chart.getChart("donutChart");
+  if (existing) existing.destroy();
+  new Chart(document.getElementById("donutChart"), {
+    type: "doughnut",
+    data: { datasets: [{
+      data: [score, 100 - score],
+      backgroundColor: [
+        window.AppCore.cssVar("--green", "#1a9e6e"),
+        window.AppCore.cssVar("--track", "#f0f4f7"),
+      ],
+      borderWidth: 0, hoverOffset: 0,
+    }]},
+    options: {
+      cutout: "75%", responsive: false, events: [],
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+    },
+  });
+}
+
+let catChartInstance = null;
+function renderCatChart(catTotals) {
+  if (catChartInstance) catChartInstance.destroy();
+  const sorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+  const labels = sorted.map(([k]) => k);
+  const data   = sorted.map(([, v]) => v);
+
+  catChartInstance = new Chart(document.getElementById("catChart"), {
+    type: "bar",
+    data: { labels, datasets: [{
+      data,
+      backgroundColor: labels.map((_, i) => PALETTE[i % PALETTE.length] + "cc"),
+      borderRadius: 6, borderSkipped: false,
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => " " + fmtDKK(ctx.raw) } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 45, autoSkip: false, font: { size: 10 } } },
+        y: { grid: { color: window.AppCore.cssVar("--chart-grid", "rgba(0,0,0,0.05)") },
+             ticks: { callback: v => v >= 1000 ? (v / 1000).toFixed(0) + "t" : v } },
+      },
+    },
+  });
+}
+
+function renderPayments(entries, key) {
+  const today = new Date();
+  const isCurrentMonth = currentYear === today.getFullYear() && currentMonth === today.getMonth();
+
+  const upcoming = entries
+    .filter(e => e.type !== "income" && e.name)
+    .map(e => {
+      const amt = Math.abs(getMonthVal(e, key));
+      if (!amt) return null;
+      return {
+        name: e.name,
+        category: e.category || "",
+        amt,
+        day: window.AppCore.lookupPaymentDay(e.name, currentYear, currentMonth),
+      };
+    })
+    .filter(Boolean)
+    .filter(p => !isCurrentMonth || p.day >= today.getDate())
+    .sort((a, b) => a.day - b.day)
+    .slice(0, 6);
+
+  const el = document.getElementById("payments-list");
+  if (!upcoming.length) {
+    el.innerHTML = '<div class="empty">Ingen flere betalinger denne måned 🎉</div>';
+    return;
+  }
+  el.innerHTML = upcoming.map(p => `
+    <div class="payment-item">
+      <div class="pay-icon">💳</div>
+      <div class="pay-info">
+        <div class="pay-name">${esc(p.name)}</div>
+        <div class="pay-cat">${esc(p.category)}</div>
+      </div>
+      <div class="pay-right">
+        <div class="pay-amount neg">−${fmtDKK(p.amt)}</div>
+        <div class="pay-date">${p.day}. ${MON_SHORT[currentMonth]}</div>
+      </div>
+    </div>`).join("");
+}
+
+function renderSavings(goals) {
+  const sav = (goals || []).filter(g => g.goal > 0);
+  const el = document.getElementById("savings-list");
+  if (!sav.length) {
+    el.innerHTML = '<div class="empty">Ingen opsparingsmål endnu – opret dem under Opsparing</div>';
+    return;
+  }
+  el.innerHTML = sav.slice(0, 4).map((g, i) => {
+    const pct = Math.min(100, Math.round(((g.balance || 0) / g.goal) * 100));
+    return `<div class="sav-item">
+      <div class="sav-row"><span class="sav-name">${esc(g.name)}</span><span class="sav-pct">${pct}%</span></div>
+      <div class="sav-amounts">${fmtDKK(g.balance || 0)} / ${fmtDKK(g.goal)}</div>
+      <div class="sav-track"><div class="sav-fill" style="width:${pct}%;background:${PALETTE[i % PALETTE.length]}"></div></div>
+    </div>`;
+  }).join("");
+}
+
+function renderYearlyStats(yIncome, ySpending, ySaving, loans) {
+  const totalDebt   = loans.reduce((s, l) => s + (l.rest > 0 ? l.rest : 0), 0);
+  const monthlyLoan = loans.reduce((s, l) => s + (l.rest > 0 ? (l.ydelse || 0) : 0), 0);
+  const yRest = yIncome - ySpending - ySaving;
+
+  const row = (label, value, cls, href) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:13px;color:var(--ink-2)">${label}</span>
+      <span style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;" class="${cls || ''}">${
+        href ? `<a href="${href}" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--border2)">${value}</a>` : value
+      }</span>
+    </div>`;
+
+  document.getElementById("yearly-stats").innerHTML =
+    row("Årlig indkomst",        fmtDKK(yIncome),   "pos") +
+    row("Årligt forbrug",        fmtDKK(ySpending), "neg") +
+    row("Lagt til side i år",    fmtDKK(ySaving),   "info") +
+    row("Til rest over året",    fmtDKK(yRest),     yRest >= 0 ? "pos" : "neg") +
+    row("Samlet restgæld",       fmtDKK(totalDebt), "neg",   "laan.html") +
+    row("Låneydelse pr. måned",  fmtDKK(monthlyLoan), "",    "laan.html");
+}
+
+/* Hentede før HELE audit-loggen og sorterede i browseren.
+   Nu beder vi Firestore om de 8 nyeste – hurtigere, og loggen
+   kan vokse frit uden at siden bliver tung. */
+async function loadAudit() {
+  const el = document.getElementById("audit-list");
+  try {
+    let docs;
+    try {
+      const snap = await getDocs(query(collection(db, "audit_log"), orderBy("ts", "desc"), limit(8)));
+      docs = snap.docs.map(d => d.data());
+    } catch (e) {
+      // Mangler Firestore-indekset? Fald tilbage til sortering lokalt.
+      const snap = await getDocs(collection(db, "audit_log"));
+      docs = snap.docs.map(d => d.data()).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 8);
+    }
+
+    if (!docs.length) {
+      el.innerHTML = '<div class="empty">Ingen ændringer logget endnu</div>';
+      return;
+    }
+    el.innerHTML = docs.map(e => {
+      const d = new Date(e.ts || Date.parse(e.date));
+      const when = d.toLocaleDateString("da-DK", { day: "numeric", month: "short" }) + " " +
+                   d.toLocaleTimeString("da-DK", { hour: "2-digit", minute: "2-digit" });
+      return `<div class="audit-item">
+        <div class="audit-dot"></div>
+        <div style="flex:1;min-width:0;">
+          <div class="audit-text">${esc(e.action || "")}${e.details ? ` <span style="color:var(--ink-3)">– ${esc(e.details)}</span>` : ""}</div>
+          <div class="audit-meta">${esc(e.user || "ukendt")} · ${when}</div>
+        </div>
+      </div>`;
+    }).join("");
+  } catch (e) {
+    el.innerHTML = '<div class="empty">Kunne ikke hente historik</div>';
+  }
+}
+</script>
+</body>
+</html>

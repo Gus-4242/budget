@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a9e6e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Familiebudget">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="app-core.css?v=27">
+<script src="app-core.js?v=27" defer></script>
+<title>Familiebudget · Opsparing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+/* Kun opsparings-specifik stil. Sidebar, topbar, kort, knapper, farver
+   og mørkt tema ligger nu i app-core.css. */
+
+/* ── SUMMARY CARDS – .sum-card m.fl. ligger i app-core.css ── */
+.summary-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:28px; }
+
+/* ── SAVINGS CARDS GRID ── */
+.savings-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:20px; margin-bottom:28px; }
+
+.sav-card {
+  background:var(--white); border:1px solid var(--border); border-radius:20px;
+  padding:24px; position:relative; overflow:hidden;
+}
+.sav-card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:4px;
+  border-radius:20px 20px 0 0;
+}
+.sav-card.color-green::before { background:var(--green); }
+.sav-card.color-blue::before  { background:var(--blue); }
+.sav-card.color-amber::before { background:var(--amber); }
+.sav-card.color-purple::before { background:var(--purple); }
+.sav-card.color-pink::before  { background:var(--pink); }
+
+.sav-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:16px; }
+.sav-name { font-family:'DM Serif Display',serif; font-size:19px; color:var(--ink); line-height:1.2; }
+.sav-deadline { font-size:12px; color:var(--ink-3); margin-top:3px; }
+.sav-badge { font-size:11px; font-weight:500; padding:4px 10px; border-radius:20px; flex-shrink:0; }
+
+/* Progress bar */
+.prog-wrap { margin:16px 0 8px; }
+.prog-labels { display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px; }
+.prog-track { height:10px; background:var(--surface); border-radius:6px; overflow:visible; position:relative; }
+.prog-fill { height:100%; border-radius:6px; transition:width 0.8s ease; position:relative; }
+.prog-planned-marker {
+  position:absolute; top:-4px; width:3px; height:18px;
+  background:var(--amber); border-radius:2px;
+  transform:translateX(-50%);
+}
+.prog-planned-label {
+  position:absolute; top:18px; font-size:10px; color:var(--amber);
+  transform:translateX(-50%); white-space:nowrap; font-weight:500;
+}
+
+/* Stats grid inside card */
+.sav-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:16px; border-top:1px solid var(--border); padding-top:16px; }
+.sav-stat-label { font-size:11px; color:var(--ink-3); margin-bottom:3px; }
+.sav-stat-value { font-size:15px; font-weight:500; color:var(--ink); }
+
+/* Deficit warning */
+.deficit-box { display:flex; align-items:center; gap:8px; background:var(--amber-l); border:1px solid rgba(217,119,6,0.25); border-radius:10px; padding:10px 14px; margin-top:14px; font-size:12px; color:var(--amber); }
+
+/* Chart inside card */
+.sav-chart-wrap { height:120px; margin-top:16px; }
+
+/* Add savings button */
+.btn-add-sav { display:flex; align-items:center; justify-content:center; gap:8px; background:var(--surface); border:2px dashed var(--border2); border-radius:20px; padding:32px; color:var(--ink-3); cursor:pointer; font-size:14px; font-family:'DM Sans',sans-serif; transition:all 0.15s; }
+.btn-add-sav:hover { background:var(--green-l); border-color:var(--green); color:var(--green); }
+
+/* Edit buttons */
+.sav-edit-btn { background:none; border:none; cursor:pointer; color:var(--ink-3); padding:4px; border-radius:6px; display:flex; }
+.sav-edit-btn:hover { color:var(--green); background:var(--green-l); }
+
+/* Table modal */
+.tbl-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; align-items:center; justify-content:center; padding:20px; }
+.tbl-modal-overlay.open { display:flex; }
+.tbl-modal { background:var(--white); border-radius:20px; width:100%; max-width:680px; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.2); animation:fadeUp 0.2s ease; }
+.tbl-modal-header { padding:20px 24px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.tbl-modal-title { font-family:'DM Serif Display',serif; font-size:20px; }
+.tbl-modal-body { overflow-y:auto; padding:0 24px 24px; }
+.tbl-modal-close { background:none; border:none; cursor:pointer; color:var(--ink-3); padding:4px; border-radius:8px; font-size:20px; line-height:1; }
+.tbl-modal-close:hover { background:var(--surface); color:var(--ink); }
+.pay-table { width:100%; border-collapse:collapse; margin-top:16px; }
+.pay-table th { font-size:11px; font-weight:600; color:var(--ink-3); letter-spacing:0.4px; padding:8px 10px; text-align:right; border-bottom:2px solid var(--border2); }
+.pay-table th:first-child { text-align:left; }
+.pay-table td { font-size:13px; padding:9px 10px; border-bottom:1px solid var(--border); text-align:right; color:var(--ink); }
+.pay-table td:first-child { text-align:left; font-weight:500; }
+.pay-table tr:hover td { background:var(--surface); }
+.pay-table tr.milestone td { background:var(--green-l); font-weight:600; color:var(--green-d); }
+.pay-table tr.extra-row td { background:var(--amber-l); }
+
+/* Modal-stilene ligger nu i app-core.css */
+@media (max-width:900px) { .savings-grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar" data-active="opsparing"></aside>
+
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <button class="hamburger" onclick="toggleSidebar()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="topbar-title">Opsparing</span>
+    </div>
+    <div style="display:flex;align-items:center;"><button onclick="exportSavings()" title="Download som CSV" style="display:flex;align-items:center;gap:6px;background:var(--white);color:var(--ink-2);border:1.5px solid var(--border2);border-radius:10px;padding:8px 14px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;margin-right:8px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Eksportér
+    </button>
+    <button onclick="openModal()" style="display:flex;align-items:center;gap:6px;background:var(--green);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Ny opsparing
+    </button></div>
+  </header>
+
+  <div class="content">
+
+    <!-- Summary -->
+    <div class="summary-grid">
+      <div class="sum-card">
+        <div class="sum-label">SAMLET OPSPARET</div>
+        <div class="sum-value pos" id="sum-total">–</div>
+        <div class="sum-sub" id="sum-total-sub"></div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">SAMLET MÅL</div>
+        <div class="sum-value info" id="sum-goal">–</div>
+        <div class="sum-sub" id="sum-pct"></div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">MÅNEDLIG INDBETALING</div>
+        <div class="sum-value" id="sum-monthly">–</div>
+        <div class="sum-sub">på tværs af alle mål</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-label">SAMLET UNDERSKUD</div>
+        <div class="sum-value amber" id="sum-deficit">–</div>
+        <div class="sum-sub">bag planlagt saldo</div>
+      </div>
+    </div>
+
+    <!-- Savings cards -->
+    <div class="savings-grid" id="savings-grid">
+      <div style="color:var(--ink-3);font-size:13px;padding:20px;">Indlæser...</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Ny opsparing</div>
+    <input type="hidden" id="edit-id">
+
+    <div class="field">
+      <label>Navn</label>
+      <input type="text" id="f-name" placeholder="fx Sommerferie 2027">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Målbeløb (kr.)</label>
+        <input type="number" id="f-goal" placeholder="50000">
+      </div>
+      <div class="field">
+        <label>Deadline</label>
+        <input type="month" id="f-deadline">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Nuværende saldo (kr.)</label>
+        <input type="number" id="f-balance" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Månedlig indbetaling (kr.)</label>
+        <input type="number" id="f-monthly" placeholder="500">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Planlagt saldo nu (kr.)</label>
+        <input type="number" id="f-planned" placeholder="0">
+      </div>
+      <div class="field">
+        <label>Farve</label>
+        <select id="f-color">
+          <option value="green">Grøn</option>
+          <option value="blue">Blå</option>
+          <option value="amber">Gul/Amber</option>
+          <option value="purple">Lilla</option>
+          <option value="pink">Pink</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Ekstra indbetaling -->
+    <div style="background:var(--amber-l);border:1.5px solid rgba(217,119,6,0.25);border-radius:12px;padding:14px 16px;margin:8px 0;">
+      <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:10px;">⚡ Ekstra indbetaling (valgfri)</div>
+      <div class="field-row">
+        <div class="field">
+          <label>Ekstra beløb pr. måned (kr.)</label>
+          <input type="number" id="f-extra" placeholder="0">
+        </div>
+        <div class="field" style="display:flex;flex-direction:column;gap:6px;">
+          <label>Fra måned</label>
+          <input type="month" id="f-extra-from">
+        </div>
+      </div>
+      <div class="field" style="max-width:50%;">
+        <label>Til måned (inkl.)</label>
+        <input type="month" id="f-extra-to">
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="saveSaving()">Gem opsparing</button>
+    <button class="btn-secondary" onclick="closeModal()">Annuller</button>
+  </div>
+</div>
+
+<!-- Betalingstabel Modal -->
+<div class="tbl-modal-overlay" id="tbl-modal">
+  <div class="tbl-modal">
+    <div class="tbl-modal-header">
+      <div>
+        <div class="tbl-modal-title" id="tbl-modal-title">Betalingsplan</div>
+        <div style="font-size:12px;color:var(--ink-3);margin-top:2px;" id="tbl-modal-sub"></div>
+      </div>
+      <button class="tbl-modal-close" onclick="closeTblModal()">✕</button>
+    </div>
+    <div class="tbl-modal-body">
+      <table class="pay-table" id="tbl-modal-table">
+        <thead>
+          <tr>
+            <th>Måned</th>
+            <th>Normal indbetaling</th>
+            <th>Ekstra indbetaling</th>
+            <th>Saldo</th>
+            <th>Til mål</th>
+            <th>%</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-modal-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+/* Firebase initialiseres ét sted – se db.js.
+   Det er dér, rettelsen af den langsomme mobilforbindelse ligger. */
+import { db, requireAuth } from "./db.js?v=27";
+import { collection, getDocs, doc, setDoc, addDoc, deleteDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const esc    = window.AppCore.esc;
+const toast  = window.AppCore.toast;
+const fmtDKK = window.AppCore.fmtDKK;
+
+let savings  = [];
+let isAdmin  = false;
+let editingId = null;
+let chartInstances = {};
+
+const COLORS = {
+  green:  { main:"#1a9e6e", light:"#e6f7f1", text:"#127a53" },
+  blue:   { main:"#2563eb", light:"#eff4ff", text:"#1d4ed8" },
+  amber:  { main:"#d97706", light:"#fffbeb", text:"#92400e" },
+  purple: { main:"#7c3aed", light:"#f5f3ff", text:"#5b21b6" },
+  pink:   { main:"#db2777", light:"#fdf2f8", text:"#9d174d" },
+};
+
+// Auth guard – udfylder også brugerfeltet i sidebaren
+requireAuth(u => {
+  isAdmin = u.isAdmin;
+  loadSavings();
+});
+
+window.toggleSidebar = () => { document.getElementById("sidebar").classList.toggle("open"); document.getElementById("overlay").classList.toggle("show"); };
+window.closeSidebar  = () => { document.getElementById("sidebar").classList.remove("open"); document.getElementById("overlay").classList.remove("show"); };
+
+async function loadSavings() {
+  const doneSlow = window.AppCore.watchSlowLoad();
+  try {
+    const snap = await getDocs(collection(db, "savings_goals"));
+    doneSlow();
+    savings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Skabelonen lægges kun ind, hvis databasen er tom (allerførste gang)
+    if (savings.length === 0) await seedDefaultSavings();
+    renderAll();
+  } catch(e) {
+    doneSlow();
+    console.error("Firestore-fejl:", e);
+    /* Her stod tidligere `savings = getDefaultSavings()`. Det viste
+       opdigtede saldi som om det var de rigtige opsparinger. Det må
+       ikke ske i en økonomiportal – vis en ærlig fejl i stedet. */
+    savings = [];
+    document.getElementById("savings-grid").innerHTML =
+      '<div class="load-error" style="grid-column:1/-1;padding:24px;">⚠️ Kunne ikke hente opsparingerne fra skyen.<br>' +
+      'Tjek forbindelsen og genindlæs siden.</div>';
+    ["sum-total","sum-goal","sum-monthly","sum-deficit"].forEach(id => {
+      const el = document.getElementById(id); if (el) el.textContent = "–";
+    });
+    toast("Opsparinger kunne ikke hentes", "error");
+  }
+}
+
+async function seedDefaultSavings() {
+  const defaults = getDefaultSavings();
+  savings = [];
+  for (const s of defaults) {
+    const ref = await addDoc(collection(db, "savings_goals"), s);
+    savings.push({ id: ref.id, ...s });
+  }
+}
+
+function getDefaultSavings() {
+  return [
+    {
+      name:          "Linnea Efterskole",
+      goal:          90659,
+      balance:       12761.39,
+      planned:       38576,
+      monthly:       1042,
+      deadline:      "2030-08",
+      color:         "green",
+      note:          "Mål Aug 2030"
+    },
+    {
+      name:          "Linnea Konfirmation",
+      goal:          40806,
+      balance:       23566.62,
+      planned:       24876.62,
+      monthly:       600,
+      deadline:      "2028-05",
+      color:         "blue",
+      note:          "Mål Maj 2028"
+    },
+    {
+      name:          "Sommerferie 2027",
+      goal:          25000,
+      balance:       0,
+      planned:       0,
+      monthly:       0,
+      deadline:      "2027-06",
+      color:         "amber",
+      note:          "Ikke startet"
+    },
+    {
+      name:          "Thailand Tur",
+      goal:          40000,
+      balance:       0,
+      planned:       0,
+      monthly:       0,
+      deadline:      "2028-01",
+      color:         "purple",
+      note:          "Ikke startet"
+    }
+  ];
+}
+
+function renderAll() {
+  renderSummary();
+  renderCards();
+}
+
+function renderSummary() {
+  const totalBalance  = savings.reduce((s,g) => s + (g.balance||0), 0);
+  const totalGoal     = savings.reduce((s,g) => s + (g.goal||0), 0);
+  const totalMonthly  = savings.reduce((s,g) => s + (g.monthly||0), 0);
+  const totalDeficit  = savings.reduce((s,g) => {
+    const def = (g.planned||0) - (g.balance||0);
+    return s + (def > 0 ? def : 0);
+  }, 0);
+  const pct = totalGoal > 0 ? Math.round((totalBalance/totalGoal)*100) : 0;
+
+  document.getElementById("sum-total").textContent     = fmtDKK(totalBalance);
+  document.getElementById("sum-total-sub").textContent = `af ${fmtDKK(totalGoal)} samlet mål`;
+  document.getElementById("sum-goal").textContent      = fmtDKK(totalGoal);
+  document.getElementById("sum-pct").textContent       = `${pct}% nået samlet`;
+  document.getElementById("sum-monthly").textContent   = fmtDKK(totalMonthly);
+  document.getElementById("sum-deficit").textContent   = totalDeficit > 0 ? fmtDKK(totalDeficit) : "Ingen";
+  document.getElementById("sum-deficit").className     = "sum-value " + (totalDeficit > 0 ? "amber" : "pos");
+}
+
+function renderCards() {
+  const grid = document.getElementById("savings-grid");
+
+  // Destroy old charts
+  Object.values(chartInstances).forEach(c => c.destroy());
+  chartInstances = {};
+
+  let html = savings.map((g, i) => {
+    const col      = COLORS[g.color] || COLORS.green;
+    const pct      = g.goal > 0 ? Math.min(100, Math.round((g.balance/g.goal)*100)) : 0;
+    const plannedPct = g.goal > 0 ? Math.min(100, Math.round(((g.planned||0)/g.goal)*100)) : 0;
+    const deficit  = (g.planned||0) - (g.balance||0);
+    const hasDeficit = deficit > 0;
+
+    // Months to deadline
+    const now      = new Date();
+    const deadDate = g.deadline ? new Date(g.deadline + "-01") : null;
+    const monthsLeft = deadDate ? Math.max(0, (deadDate.getFullYear()-now.getFullYear())*12 + deadDate.getMonth() - now.getMonth()) : null;
+
+    // Projected completion
+    const remaining = g.goal - g.balance;
+    // Calculate months needed accounting for extra payment period
+    let monthsNeeded = null;
+    if (g.monthly > 0 || g.extra > 0) {
+      const now2 = new Date();
+      let bal2 = g.balance, m2 = 0;
+      while (bal2 < g.goal && m2 < 600) {
+        const d2  = new Date(now2.getFullYear(), now2.getMonth() + m2, 1);
+        const ym2 = `${d2.getFullYear()}-${String(d2.getMonth()+1).padStart(2,"0")}`;
+        const extra2 = (g.extra && g.extraFrom && g.extraTo && ym2 >= g.extraFrom && ym2 <= g.extraTo) ? g.extra : 0;
+        bal2 += (g.monthly||0) + extra2;
+        m2++;
+      }
+      monthsNeeded = bal2 >= g.goal ? m2 : null;
+    }
+    const onTrack = monthsNeeded !== null && monthsLeft !== null ? monthsNeeded <= monthsLeft : null;
+
+    // Badge
+    let badgeText, badgeStyle;
+    if (pct >= 100) { badgeText = "✅ Nået!"; badgeStyle = `background:var(--green-l);color:var(--green-d)`; }
+    else if (onTrack === true)  { badgeText = "På sporet"; badgeStyle = `background:var(--green-l);color:var(--green-d)`; }
+    else if (onTrack === false) { badgeText = "⚠️ Bagud"; badgeStyle = `background:var(--amber-l);color:var(--amber)`; }
+    else { badgeText = "Ikke startet"; badgeStyle = `background:var(--surface);color:var(--ink-3)`; }
+
+    return `<div class="sav-card color-${g.color}">
+      <div class="sav-header">
+        <div>
+          <div class="sav-name">${esc(g.name)}</div>
+          <div class="sav-deadline">${g.deadline ? formatDeadline(g.deadline) : "Ingen deadline"} ${monthsLeft !== null ? `· ${monthsLeft} mdr tilbage` : ""}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="sav-badge" style="${badgeStyle}">${badgeText}</span>
+          <button class="sav-edit-btn" onclick="openTblModal('${g.id}')" title="Se fuld betalingsplan" style="color:var(--blue)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+          </button>
+          ${isAdmin ? `<button class="sav-edit-btn" onclick="editSaving('${g.id}')" title="Rediger">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+          <button class="sav-edit-btn" onclick="deleteSaving('${g.id}')" title="Slet" style="color:var(--ink-3)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+          </button>` : ""}
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div class="prog-wrap">
+        <div class="prog-labels">
+          <span style="font-size:13px;font-weight:500;color:${col.main}">${fmtDKK(g.balance)}</span>
+          <span style="font-size:13px;color:var(--ink-3)">${fmtDKK(g.goal)}</span>
+        </div>
+        <div class="prog-track">
+          <div class="prog-fill" style="width:${pct}%;background:${col.main}"></div>
+          ${plannedPct > 0 && plannedPct > pct ? `
+            <div class="prog-planned-marker" style="left:${plannedPct}%"></div>
+            <div class="prog-planned-label" style="left:${plannedPct}%">Planlagt</div>
+          ` : ""}
+        </div>
+        <div style="font-size:11px;color:var(--ink-3);margin-top:18px;">${pct}% nået</div>
+      </div>
+
+      ${hasDeficit ? `<div class="deficit-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Bagud med ${fmtDKK(deficit)} ift. planlagt saldo
+      </div>` : ""}
+
+      <!-- Stats -->
+      <div class="sav-stats">
+        <div>
+          <div class="sav-stat-label">Månedlig indbetaling</div>
+          <div class="sav-stat-value">${g.monthly > 0 ? fmtDKK(g.monthly) : "–"}
+            ${g.extra > 0 ? `<span style="font-size:11px;color:var(--amber);margin-left:4px;">+${fmtDKK(g.extra)} ekstra</span>` : ""}
+          </div>
+          ${g.extra > 0 && g.extraFrom ? `<div style="font-size:10px;color:var(--amber);margin-top:2px;">${formatDeadline(g.extraFrom)} – ${g.extraTo ? formatDeadline(g.extraTo) : "?"}</div>` : ""}
+        </div>
+        <div>
+          <div class="sav-stat-label">Mangler stadig</div>
+          <div class="sav-stat-value ${remaining > 0 ? 'neg' : 'pos'}">${fmtDKK(Math.max(0, remaining))}</div>
+        </div>
+        <div>
+          <div class="sav-stat-label">Færdig om ca.</div>
+          <div class="sav-stat-value">${monthsNeeded !== null && monthsNeeded > 0 ? monthsNeeded + " mdr" : pct >= 100 ? "Nu!" : "–"}</div>
+        </div>
+      </div>
+
+      <!-- Mini chart -->
+      <div class="sav-chart-wrap">
+        <canvas id="chart-${g.id}" role="img" aria-label="Fremskrivning af ${esc(g.name)}"></canvas>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Add "ny opsparing" card
+  if (isAdmin) {
+    html += `<button class="btn-add-sav" onclick="openModal()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Tilføj ny opsparing
+    </button>`;
+  }
+
+  grid.innerHTML = html;
+
+  // Render charts after DOM update
+  setTimeout(() => savings.forEach(g => renderMiniChart(g)), 50);
+}
+
+function renderMiniChart(g) {
+  const canvas = document.getElementById(`chart-${g.id}`);
+  if (!canvas) return;
+
+  const col = COLORS[g.color] || COLORS.green;
+  const now = new Date();
+
+  // Build projection: current balance + monthly payments
+  const labels = [], actual = [], projected = [], planned = [];
+  let bal = g.balance || 0;
+  let planBal = g.planned || g.balance || 0;
+
+  for (let m = 0; m <= 36; m++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + m, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+    labels.push(d.toLocaleDateString("da-DK", {month:"short", year:"2-digit"}));
+
+    // Extra payment applies if within the from-to period
+    let extraThisMonth = 0;
+    if (g.extra && g.extraFrom && g.extraTo && ym >= g.extraFrom && ym <= g.extraTo) {
+      extraThisMonth = g.extra;
+    }
+
+    if (m === 0) {
+      actual.push(bal);
+      planned.push(planBal);
+    } else {
+      bal     = Math.min(g.goal, bal     + (g.monthly||0) + extraThisMonth);
+      planBal = Math.min(g.goal, planBal + (g.monthly||0) + extraThisMonth);
+      projected.push(bal);
+      planned.push(planBal);
+      actual.push(null);
+    }
+
+    if (bal >= g.goal) { labels.length = m+1; break; }
+  }
+
+  chartInstances[g.id] = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Faktisk",
+          data: actual,
+          borderColor: col.main,
+          backgroundColor: col.main + "20",
+          borderWidth: 2.5,
+          pointRadius: 3,
+          fill: true,
+          tension: 0.3,
+          spanGaps: false
+        },
+        {
+          label: "Fremskrivning",
+          data: [g.balance, ...projected],
+          borderColor: col.main + "88",
+          borderWidth: 1.5,
+          borderDash: [4,3],
+          pointRadius: 0,
+          fill: false,
+          tension: 0.3
+        },
+        {
+          label: "Planlagt",
+          data: planned,
+          borderColor: "#d97706",
+          borderWidth: 1,
+          borderDash: [2,4],
+          pointRadius: 0,
+          fill: false,
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: "top",
+          align: "start",
+          labels: {
+            boxWidth: 20,
+            boxHeight: 2,
+            padding: 8,
+            font: { size: 10, family: "'DM Sans', sans-serif" },
+            color: "#8899aa",
+            usePointStyle: true,
+            pointStyle: "line",
+          }
+        },
+        tooltip: {
+          callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fmtDKK(ctx.raw)}` }
+        }
+      },
+      scales: {
+        x: { grid:{display:false}, ticks:{font:{size:9}, color:window.AppCore.cssVar("--chart-tick","#64748b"), maxTicksLimit:8} },
+        y: {
+          grid:{color:window.AppCore.cssVar("--chart-grid","rgba(0,0,0,0.05)")},
+          ticks:{font:{size:9}, color:window.AppCore.cssVar("--chart-tick","#64748b"), callback: v => v>=1000?(v/1000).toFixed(0)+"t":v},
+          max: g.goal * 1.05
+        }
+      }
+    }
+  });
+}
+
+// ── MODAL ──
+window.openModal = function(prefill) {
+  editingId = null;
+  document.getElementById("modal-title").textContent = "Ny opsparing";
+  document.getElementById("edit-id").value = "";
+  document.getElementById("f-name").value       = prefill?.name       || "";
+  document.getElementById("f-goal").value       = prefill?.goal       || "";
+  document.getElementById("f-deadline").value   = prefill?.deadline   || "";
+  document.getElementById("f-balance").value    = prefill?.balance    || "";
+  document.getElementById("f-monthly").value    = prefill?.monthly    || "";
+  document.getElementById("f-planned").value    = prefill?.planned    || "";
+  document.getElementById("f-color").value      = prefill?.color      || "green";
+  document.getElementById("f-extra").value      = prefill?.extra      || "";
+  document.getElementById("f-extra-from").value = prefill?.extraFrom  || "";
+  document.getElementById("f-extra-to").value   = prefill?.extraTo    || "";
+  document.getElementById("modal").classList.add("open");
+};
+
+window.editSaving = function(id) {
+  const g = savings.find(s => s.id === id);
+  if (!g) return;
+  editingId = id;
+  document.getElementById("modal-title").textContent = "Rediger opsparing";
+  document.getElementById("edit-id").value    = id;
+  document.getElementById("f-name").value       = g.name       || "";
+  document.getElementById("f-goal").value       = g.goal       || "";
+  document.getElementById("f-deadline").value   = g.deadline   || "";
+  document.getElementById("f-balance").value    = g.balance    || "";
+  document.getElementById("f-monthly").value    = g.monthly    || "";
+  document.getElementById("f-planned").value    = g.planned    || "";
+  document.getElementById("f-color").value      = g.color      || "green";
+  document.getElementById("f-extra").value      = g.extra      || "";
+  document.getElementById("f-extra-from").value = g.extraFrom  || "";
+  document.getElementById("f-extra-to").value   = g.extraTo    || "";
+  document.getElementById("modal").classList.add("open");
+};
+
+window.closeModal = function() {
+  document.getElementById("modal").classList.remove("open");
+};
+
+window.saveSaving = async function() {
+  const extraAmt  = parseFloat(document.getElementById("f-extra").value)     || 0;
+  const extraFrom = document.getElementById("f-extra-from").value;
+  const extraTo   = document.getElementById("f-extra-to").value;
+  const data = {
+    name:       document.getElementById("f-name").value.trim(),
+    goal:       parseFloat(document.getElementById("f-goal").value)    || 0,
+    deadline:   document.getElementById("f-deadline").value,
+    balance:    parseFloat(document.getElementById("f-balance").value) || 0,
+    monthly:    parseFloat(document.getElementById("f-monthly").value) || 0,
+    planned:    parseFloat(document.getElementById("f-planned").value) || 0,
+    color:      document.getElementById("f-color").value,
+    extra:      extraAmt,
+    extraFrom:  extraFrom,
+    extraTo:    extraTo,
+  };
+  if (!data.name) { toast("Skriv venligst et navn", "error"); return; }
+
+  try {
+    if (editingId) {
+      await setDoc(doc(db, "savings_goals", editingId), data);
+      savings = savings.map(s => s.id === editingId ? { id: editingId, ...data } : s);
+    } else {
+      const ref = await addDoc(collection(db, "savings_goals"), data);
+      savings.push({ id: ref.id, ...data });
+    }
+  } catch(e) {
+    toast("Kunne ikke gemme i skyen – ændringen er kun lokal indtil næste genindlæsning", "error");
+    if (editingId) savings = savings.map(s => s.id === editingId ? { id: editingId, ...data } : s);
+    else savings.push({ id: Date.now().toString(), ...data });
+  }
+  closeModal();
+  renderAll();
+};
+
+window.deleteSaving = async function(id) {
+  if (!confirm("Er du sikker på at du vil slette denne opsparing?")) return;
+  try { await deleteDoc(doc(db, "savings_goals", id)); } catch(e) { toast("Kunne ikke slette i skyen – tjek forbindelsen", "error"); }
+  savings = savings.filter(s => s.id !== id);
+  renderAll();
+};
+
+// ── HELPERS ──
+function formatDeadline(ym) {
+  const [y, m] = ym.split("-");
+  const months = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
+  return `${months[parseInt(m)-1]} ${y}`;
+}
+
+window.openTblModal = function(id) {
+  const g = savings.find(s => s.id === id);
+  if (!g) return;
+
+  document.getElementById("tbl-modal-title").textContent = g.name + " – Betalingsplan";
+  document.getElementById("tbl-modal-sub").textContent =
+    `Mål: ${fmtDKK(g.goal)} · Deadline: ${g.deadline ? formatDeadline(g.deadline) : "–"} · Månedlig: ${fmtDKK(g.monthly)}`;
+
+  const now     = new Date();
+  const tbody   = document.getElementById("tbl-modal-body");
+  const MONTHS  = ["Januar","Februar","Marts","April","Maj","Juni","Juli","August","September","Oktober","November","December"];
+
+  let bal        = g.balance || 0;
+  let rows       = "";
+  let year       = now.getFullYear();
+  let month      = now.getMonth();
+  let reachedGoal = false;
+
+  // Determine end: deadline or when goal reached (max 10 years)
+  const deadDate  = g.deadline ? new Date(g.deadline + "-01") : null;
+  const maxMonths = 120;
+
+  for (let m = 0; m < maxMonths; m++) {
+    const d    = new Date(year, month + m, 1);
+    const ym   = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+    const mLbl = `${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+
+    const extra = (g.extra && g.extraFrom && g.extraTo && ym >= g.extraFrom && ym <= g.extraTo)
+      ? g.extra : 0;
+    const normal  = g.monthly || 0;
+    const deposit = normal + extra;
+
+    bal = Math.min(g.goal, bal + deposit);
+    const remaining = Math.max(0, g.goal - bal);
+    const pct       = Math.round((bal / g.goal) * 100);
+    const isGoal    = bal >= g.goal && !reachedGoal;
+    const isDead    = deadDate && d.getFullYear() === deadDate.getFullYear() && d.getMonth() === deadDate.getMonth();
+
+    let rowClass = "";
+    if (isGoal)  { rowClass = "milestone"; reachedGoal = true; }
+    else if (extra > 0) rowClass = "extra-row";
+
+    rows += `<tr class="${rowClass}">
+      <td>${mLbl}${isDead ? " 🎯" : ""}${isGoal ? " ✅" : ""}</td>
+      <td>${fmtDKK(normal)}</td>
+      <td>${extra > 0 ? `<span style="color:var(--amber);font-weight:500">+${fmtDKK(extra)}</span>` : "–"}</td>
+      <td style="font-weight:500;color:${bal>=g.goal?'var(--green)':'var(--ink)'}">${fmtDKK(bal)}</td>
+      <td style="color:${remaining>0?'var(--red)':'var(--green)'}">${remaining > 0 ? fmtDKK(remaining) : "Nået!"}</td>
+      <td style="color:${pct>=100?'var(--green)':'var(--ink-2)'}">${pct}%</td>
+    </tr>`;
+
+    // Stop when goal reached or past deadline by 1 month
+    if (reachedGoal) break;
+    if (deadDate && d > deadDate) break;
+  }
+
+  tbody.innerHTML = rows;
+  document.getElementById("tbl-modal").classList.add("open");
+};
+
+window.closeTblModal = function() {
+  document.getElementById("tbl-modal").classList.remove("open");
+};
+
+// Close on overlay click
+document.getElementById("tbl-modal").addEventListener("click", function(e) {
+  if (e.target === this) closeTblModal();
+});
+
+window.exportSavings = function() {
+  const rows = savings.map(g => ({
+    Navn: g.name || "", Maalbeloeb: g.goal || 0, Nuvaerende_saldo: g.balance || 0,
+    Planlagt_saldo: g.planned || 0, Maanedlig: g.monthly || 0,
+    Ekstra: g.extra || 0, Ekstra_fra: g.extraFrom || "", Ekstra_til: g.extraTo || "",
+    Deadline: g.deadline || ""
+  }));
+  window.AppCore.exportCSV("opsparing", rows);
+};
+// fmtDKK kommer nu fra app-core.js (var før defineret lokalt på fem sider)
+</script>
+</body>
+</html>

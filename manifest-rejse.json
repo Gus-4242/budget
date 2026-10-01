@@ -1,0 +1,15 @@
+{
+  "name": "Rejseudgifter",
+  "short_name": "Rejse",
+  "description": "Registrér rejseomkostninger på farten",
+  "start_url": "rejse.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f0",
+  "theme_color": "#0d9488",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "rejse-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "rejse-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
