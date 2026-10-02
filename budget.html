@@ -10,8 +10,8 @@
 <meta name="apple-mobile-web-app-title" content="Familiebudget">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="app-core.css?v=27">
-<script src="app-core.js?v=27" defer></script>
+<link rel="stylesheet" href="app-core.css?v=28">
+<script src="app-core.js?v=28" defer></script>
 <title>Familiebudget · Budget</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -198,12 +198,10 @@
  <button class="hamburger" onclick="toggleSidebar()">
  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
  </button>
- <span class="topbar-title">Budget 2026</span>
+ <span class="topbar-title" id="budget-title">Budget</span>
  </div>
  <div style="display:flex;align-items:center;gap:10px;">
- <div class="year-tabs">
- <button class="year-tab active">2026</button>
- </div>
+ <div class="year-tabs" id="year-tabs"></div>
  <button onclick="exportBudget()" title="Download budget som CSV/Excel" style="display:flex;align-items:center;gap:6px;background:var(--green);color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(26,158,110,0.25);">
  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
  Eksportér
@@ -238,21 +236,9 @@
 
  <div class="budget-table-wrap" id="budget-wrap">
 
- <div class="tbl-header">
+ <div class="tbl-header" id="tbl-header">
  <div class="th">Post</div>
  <div class="th">Årligt</div>
- <div class="th">Jan</div>
- <div class="th">Feb</div>
- <div class="th">Mar</div>
- <div class="th">Apr</div>
- <div class="th">Maj</div>
- <div class="th cur-month">Jun</div>
- <div class="th">Jul</div>
- <div class="th">Aug</div>
- <div class="th">Sep</div>
- <div class="th">Okt</div>
- <div class="th">Nov</div>
- <div class="th">Dec</div>
  </div>
 
  <div id="budget-body"></div>
@@ -282,7 +268,7 @@
 <script type="module">
 /* Firebase initialiseres ét sted – se db.js.
    Det er dér, rettelsen af den langsomme mobilforbindelse ligger. */
-import { db, requireAuth } from "./db.js?v=27";
+import { db, requireAuth } from "./db.js?v=28";
 import { collection, getDocs, doc, setDoc, updateDoc, addDoc, deleteDoc }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -290,16 +276,53 @@ const esc    = window.AppCore.esc;
 const toast  = window.AppCore.toast;
 const fmtDKK = window.AppCore.fmtDKK;
 
-// Årshåndtering: DATA_YEAR = skabelonår for budgettal; BUDGET_YEAR = visningsår
+// Årshåndtering – samme regel som cashflow og dashboard:
+// DATA_YEAR = året budgettallene første gang blev tastet ind (skabelon).
+// For senere år genbruges skabelonens måned, indtil der rettes et tal
+// i det pågældende år; rettelsen gemmes så kun for det år.
 const DATA_YEAR   = 2026;
 const BUDGET_YEAR = (window.AppCore && window.AppCore.BUDGET_YEAR) || new Date().getFullYear();
+const TODAY_YEAR  = new Date().getFullYear();
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
-const CUR_MONTH = new Date().getMonth(); // 0-indexed, Jun = 5
+let selectedYear = BUDGET_YEAR;
+
+// Fremhæv kun den aktuelle måned, når man ser på indeværende år
+function curMonth() {
+ return selectedYear === TODAY_YEAR ? new Date().getMonth() : -1;
+}
+
+function monthKey(m) {
+ return `${selectedYear}-${String(m+1).padStart(2,"0")}`;
+}
+
+// Årsfaner: fra skabelonåret til og med næste år
+function renderYearTabs() {
+ const tabs = document.getElementById("year-tabs");
+ let html = "";
+ for (let y = DATA_YEAR; y <= BUDGET_YEAR + 1; y++) {
+  html += `<button class="year-tab ${y===selectedYear?"active":""}" onclick="selectYear(${y})">${y}</button>`;
+ }
+ tabs.innerHTML = html;
+ document.getElementById("budget-title").textContent = `Budget ${selectedYear}`;
+ document.title = `Familiebudget · Budget ${selectedYear}`;
+
+ const cm = curMonth();
+ document.getElementById("tbl-header").innerHTML =
+  `<div class="th">Post</div><div class="th">Årligt</div>` +
+  MONTHS_SHORT.map((m,i) => `<div class="th ${i===cm?"cur-month":""}">${m}</div>`).join("");
+}
+
+window.selectYear = function(y) {
+ selectedYear = y;
+ renderYearTabs();
+ renderBudget();
+};
 let isAdmin = false;
 let allEntries = [];
 
 // ── Auth guard ── (udfylder også brugerfeltet i sidebaren)
+renderYearTabs();
 requireAuth(u => {
  isAdmin = u.isAdmin;
  loadBudget();
@@ -501,6 +524,7 @@ function renderBudget() {
  }
 
  let totalIncome = 0, totalExpenses = 0;
+ const cm = curMonth();
 
  for (const cat of DEFAULT_CATEGORIES) {
  const c = catMap[cat.id];
@@ -515,7 +539,7 @@ function renderBudget() {
  let catAnnual = 0;
  entries.forEach(e => {
  for (let m = 0; m < 12; m++) {
- const key = `${DATA_YEAR}-${String(m+1).padStart(2,"0")}`;
+ const key = monthKey(m);
  catAnnual += Math.abs(getMonthVal(e, key));
  }
  });
@@ -525,7 +549,7 @@ function renderBudget() {
 
  // Category header
  const monthTotals = MONTHS_SHORT.map((_, mi) => {
- const key = `${DATA_YEAR}-${String(mi+1).padStart(2,"0")}`;
+ const key = monthKey(mi);
  return entries.reduce((s, e) => s + Math.abs(getMonthVal(e, key)), 0);
  });
 
@@ -534,7 +558,7 @@ function renderBudget() {
  hdr.innerHTML = `
  <div class="cat-label"><span class="arrow">▼</span> ${cat.label}</div>
  <div class="cat-total ${cat.type==="income"?"pos":"neg"}">${fmtK(catAnnual)}</div>
- ${monthTotals.map((v,i) => `<div class="cat-month ${i===CUR_MONTH?"cur-month":""}">${v>0?fmtK(v):""}</div>`).join("")}
+ ${monthTotals.map((v,i) => `<div class="cat-month ${i===cm?"cur-month":""}">${v>0?fmtK(v):""}</div>`).join("")}
  `;
  hdr.onclick = () => section.classList.toggle("collapsed");
  section.appendChild(hdr);
@@ -569,9 +593,9 @@ function renderBudget() {
  </div>
  <div class="cell-annual">${annual > 0 ? fmtK(annual) : ""}</div>
  ${MONTHS_SHORT.map((_, mi) => {
- const key = `${DATA_YEAR}-${String(mi+1).padStart(2,"0")}`;
+ const key = monthKey(mi);
  const val = getMonthVal(e, key);
- return `<div class="cell-val ${mi===CUR_MONTH?"cur-month":""}" data-key="${key}" data-id="${e.id||""}" data-ei="${ei}" data-cid="${cat.id}" onclick="startEdit(this)">${val !== 0 ? fmtNoSign(val) : ""}</div>`;
+ return `<div class="cell-val ${mi===cm?"cur-month":""}" data-key="${key}" data-id="${e.id||""}" data-ei="${ei}" data-cid="${cat.id}" onclick="startEdit(this)">${val !== 0 ? fmtNoSign(val) : ""}</div>`;
  }).join("")}
  `;
  wrap.appendChild(row);
@@ -680,7 +704,7 @@ async function addRow(catId, catLabel, type) {
  try {
  const data = {
  name: "Ny post", category: catLabel, category_id: catId,
- type, monthly_amount: 0, months: {}, year: DATA_YEAR, order: 99
+ type, monthly_amount: 0, months: {}, year: selectedYear, order: 99
  };
  const ref = await addDoc(collection(db, "budget_entries"), data);
  allEntries.push({ id: ref.id, ...data });
@@ -813,14 +837,18 @@ function updateSummary() {
 // ── HELPERS ──
 function getMonthVal(e, key) {
  if (e.months && e.months[key] !== undefined) return e.months[key];
+ // For år efter DATA_YEAR: brug skabelonmåneden (samme regel som cashflow)
+ const [y, m] = key.split("-");
+ if (parseInt(y) > DATA_YEAR && e.months && e.months[`${DATA_YEAR}-${m}`] !== undefined) {
+  return e.months[`${DATA_YEAR}-${m}`];
+ }
  return e.monthly_amount ?? e.monthly ?? 0;
 }
 
 function calcAnnual(e) {
  let total = 0;
- for (let m = 1; m <= 12; m++) {
- const key = `${DATA_YEAR}-${String(m).padStart(2,"0")}`;
- total += Math.abs(getMonthVal(e, key));
+ for (let m = 0; m < 12; m++) {
+ total += Math.abs(getMonthVal(e, monthKey(m)));
  }
  return total;
 }
@@ -839,14 +867,13 @@ window.exportBudget = function() {
   const rows = [];
   allEntries.forEach(e => {
     const row = { Kategori: e.category || "", Post: e.name || "", Type: e.type || "" };
-    for (let m = 1; m <= 12; m++) {
-      const key = `${DATA_YEAR}-${String(m).padStart(2,"0")}`;
-      row[MONTHS_SHORT[m-1]] = (e.months && e.months[key] != null) ? e.months[key] : (e.monthly_amount || 0);
+    for (let m = 0; m < 12; m++) {
+      row[MONTHS_SHORT[m]] = getMonthVal(e, monthKey(m));
     }
     row["Årligt"] = calcAnnual(e);
     rows.push(row);
   });
-  window.AppCore.exportCSV("budget", rows);
+  window.AppCore.exportCSV(`budget-${selectedYear}`, rows);
 };
 // fmtDKK kommer nu fra app-core.js (var før defineret lokalt på fem sider)
 
@@ -854,7 +881,7 @@ window.exportBudget = function() {
 function renderMonthlySummary() {
   const MONTHS_LONG = ["Januar","Februar","Marts","April","Maj","Juni","Juli","August","September","Oktober","November","December"];
   const MONTHS_SHORT2 = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
-  const CUR_M = new Date().getMonth();
+  const CUR_M = curMonth();
 
   // Build header
   const hdr = document.getElementById("msum-header");
@@ -892,7 +919,7 @@ function renderMonthlySummary() {
     `<tr><td colspan="13" style="padding:0;height:2px;background:var(--border2);"></td></tr>`;
 
   // Calculate monthly totals
-  const monthKeys = Array.from({length:12}, (_,i) => `${DATA_YEAR}-${String(i+1).padStart(2,"0")}`);
+  const monthKeys = Array.from({length:12}, (_,i) => monthKey(i));
 
   // Income per month
   const incomeVals = monthKeys.map(k =>

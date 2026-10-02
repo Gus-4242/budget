@@ -24,7 +24,7 @@
    login-siden i stedet for (ved en fejl) rejseregnskabet.
 */
 
-const CACHE_VERSION = "v27";
+const CACHE_VERSION = "v28";
 const CACHE_NAME    = "familiebudget-" + CACHE_VERSION;
 
 // Hvor længe vi højst venter på netværket for en HTML-side,
