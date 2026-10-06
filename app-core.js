@@ -11,7 +11,7 @@
   /* ── VERSION – ret KUN her ──
      HUSK: samme nummer skal sættes i service-worker.js (CACHE_VERSION)
      og i ?v=NN på <script>/<link>-tags i HTML-filerne. */
-  const VERSION = "v27";
+  const VERSION = "v28";
 
   /* ── BUDGETÅR – styres ét sted ──
      Sættes til indeværende år, men kan overskrives hvis man vil se et bestemt år.
@@ -246,7 +246,7 @@
 
   const NAV_ITEMS = [
     { id: "dashboard", href: "dashboard.html", icon: "dashboard", label: "Dashboard" },
-    { id: "budget",    href: "budget.html",    icon: "budget",    label: "Budget 2026" },
+    { id: "budget",    href: "budget.html",    icon: "budget",    label: `Budget ${BUDGET_YEAR}` },
     { section: "Økonomi" },
     { id: "cashflow",  href: "cashflow.html",  icon: "cashflow",  label: "Cashflow" },
     { id: "loan",      href: "laan.html",      icon: "loan",      label: "Lån" },
@@ -273,7 +273,7 @@
         <div class="logo-icon">N</div>
         <div>
           <div class="logo-name">Familiebudget</div>
-          <div class="logo-year">Nørgaard · 2026 · <span style="color:var(--green)">${VERSION}</span></div>
+          <div class="logo-year">Nørgaard · ${BUDGET_YEAR} · <span style="color:var(--green)">${VERSION}</span></div>
         </div>
       </div>
       <nav class="nav">${nav}</nav>
